@@ -1,0 +1,130 @@
+# ============================================================================
+# Hyperparameter Optimization (NAS-HPO via Optuna TPE + Hyperband) for UAVReIDNet
+# Objective: Maximize worst-case Rank-1 across N in {8, 12, 16}
+# ============================================================================
+
+device:
+  platform: server
+  gpu_jetson: false
+
+paths:
+  raw_data_dir: /data/UAV-Anti-UAV
+  data_dir: /data/processed
+  gasnet_weights: outputs/gasnet/gasnet_vru.best.pth
+  checkpoint_dir: outputs/hpo/uav_reid/checkpoints
+  log_dir: outputs/hpo/uav_reid/logs
+
+data_pipeline:
+  frame_stride: 4
+  num_before_frames: 16
+  num_after_frames: 16
+  bbox_padding: 0.2
+  crop_size: 256
+  num_workers: 8
+  uav_anti_uav_dir: /data/UAV-Anti-UAV
+  output_dir: /data/processed
+
+train:
+  seed: 42
+  backbone: dinov3_convnext
+  econvnext: true
+  batch_size: 12
+  num_instances: 3
+  num_frames: 12
+
+  temporal_type: attention
+  temporal_pool: attn
+  temporal_pe: true
+  temporal_d_model: 512
+  temporal_d_out: 512
+  temporal_layers: 2
+  temporal_heads: 8
+  temporal_dropout: 0.1
+
+  num_workers: 8
+  use_amp: true
+  pin_memory: true
+  use_compile: true
+  compile_dynamic: false
+
+  val_freq: 5
+  val_n_list: [8, 12, 16]
+
+  stage1:
+    epochs: 15                               # Proxy Stage 1 epochs during HPO
+    lr: 3.5e-4
+    weight_decay: 5.0e-4
+
+  stage2:
+    epochs: 15                               # Proxy Stage 2 epochs during HPO
+    lr_backbone: 1.0e-5
+    lr_temporal: 1.0e-4
+    lr_head: 1.0e-4
+    weight_decay: 5.0e-4
+
+  loss:
+    lam1: 1.0
+    lam2: 0.0
+    lam3: 0.001
+    lr_center: 0.5
+    triplet_margin: 0.3
+    label_smooth: 0.1
+
+hpo:
+  study_name: hpo_uav_reid
+  n_trials: 25
+  seed: 42
+  min_resource: 5
+  max_resource: 30
+  reduction_factor: 2
+  search_space:
+    train.stage1.lr:
+      type: float
+      low: 1.0e-4
+      high: 1.0e-3
+      log: true
+    train.stage1.weight_decay:
+      type: float
+      low: 1.0e-4
+      high: 5.0e-3
+      log: true
+    train.stage2.lr_backbone:
+      type: float
+      low: 3.0e-6
+      high: 5.0e-5
+      log: true
+    train.stage2.lr_temporal:
+      type: float
+      low: 3.0e-5
+      high: 5.0e-4
+      log: true
+    train.stage2.lr_head:
+      type: float
+      low: 3.0e-5
+      high: 5.0e-4
+      log: true
+    train.loss.lam1:
+      type: float
+      low: 0.5
+      high: 2.0
+      log: false
+    train.loss.lam3:
+      type: float
+      low: 1.0e-4
+      high: 1.0e-2
+      log: true
+    train.loss.triplet_margin:
+      type: float
+      low: 0.2
+      high: 0.5
+      log: false
+    train.loss.label_smooth:
+      type: float
+      low: 0.05
+      high: 0.2
+      log: false
+    train.temporal_dropout:
+      type: float
+      low: 0.0
+      high: 0.3
+      log: false

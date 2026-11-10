@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter Notebook & IDEs
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Datasets and processed data (root level)
+/data/
+/datasets/
+/raw_data/
+/processed/
+/UAVDT/
+/VisDrone/
+/VRU/
+/VRAI/
+/UAVAntiUAV/
+
+# Checkpoints, model weights, logs
+checkpoints/
+weights/
+outputs/
+output/
+runs/
+logs/
+*.pth
+*.pt
+*.onnx
+*.engine
+*.bin
+*.safetensors
+
+# Experiment tracking
+wandb/
+
+# Compressed archives
+*.tar
+*.tar.gz
+*.zip
+*.7z
+
+# OS / temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.env

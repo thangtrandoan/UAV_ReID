@@ -1,0 +1,104 @@
+# ============================================================================
+# Hyperparameter Optimization (NAS-HPO via Optuna TPE + Hyperband) for GASNet
+# ============================================================================
+
+paths:
+  data_root: /data
+  save_path: outputs/hpo/gasnet/gasnet_vru.pth
+  log_path: outputs/hpo/gasnet/log.txt
+
+model:
+  backbone: dinov3_convnext
+  econvnext: true
+  pretrained: true
+  gate: bcgg
+  gate_hidden: 16
+  gate_groups: 4
+  gate_kernel: 7
+  gate_channel_kernel: 5
+  gate_inject_value: false
+  use_gem: true
+  gem_p: 3.0
+
+train:
+  dataset: vru
+  seed: 42
+  epochs: 20                                 # Proxy epochs per trial on H100
+  batch_size: 512
+  base_batch_size: 128
+  backbone_lr: 3.0e-5
+  head_lr: 3.0e-4
+  convnext_weight_decay: 0.05
+  convnext_warmup_epochs: 5
+  grad_accum: 1
+  pk_k: 4
+  strong_aug: false
+  triplet_weight: 0.5
+  triplet_margin: 0.3
+  label_smoothing: 0.1
+  num_workers: 8
+  prefetch_factor: 4
+  pin_memory: true
+  persistent_workers: true
+  channels_last: true
+  use_amp: true
+  amp_dtype: bf16
+  use_compile: true
+
+eval:
+  run_eval: true
+  eval_every: 5                              # Evaluate every 5 epochs for Hyperband pruning
+  save_best: true
+  best_metric: small_map                     # Fast evaluation on Small/Medium during HPO
+  splits: ["Small", "Medium"]
+  q_chunk_size: 2048
+  use_fp16_sim: true
+  split_seed: 42
+  gallery_mode: random
+
+hpo:
+  study_name: hpo_gasnet_vru
+  n_trials: 20
+  seed: 42
+  min_resource: 5
+  max_resource: 20
+  reduction_factor: 2
+  search_space:
+    train.backbone_lr:
+      type: float
+      low: 1.0e-5
+      high: 1.0e-4
+      log: true
+    train.head_lr:
+      type: float
+      low: 1.0e-4
+      high: 1.0e-3
+      log: true
+    train.convnext_weight_decay:
+      type: float
+      low: 1.0e-3
+      high: 1.0e-1
+      log: true
+    train.triplet_margin:
+      type: float
+      low: 0.2
+      high: 0.5
+      log: false
+    train.triplet_weight:
+      type: float
+      low: 0.25
+      high: 1.5
+      log: false
+    train.label_smoothing:
+      type: float
+      low: 0.05
+      high: 0.2
+      log: false
+    model.gem_p:
+      type: float
+      low: 2.0
+      high: 4.0
+      log: false
+    train.pk_k:
+      type: categorical
+      choices: [4, 8]

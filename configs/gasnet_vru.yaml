@@ -1,0 +1,71 @@
+# ============================================================================
+# Stage 1: GASNet Training & Evaluation on VRU (Optimized for NVIDIA H100)
+# ============================================================================
+
+paths:
+  data_root: /data                           # Folder containing VRU/Pic and VRU/train_test_split
+  save_path: outputs/gasnet/gasnet_vru.pth
+  log_path: outputs/gasnet/log.txt
+
+model:
+  backbone: dinov3_convnext                  # resnet50 | resnet50_ibn | swin_t | dinov3_convnext
+  econvnext: true                            # E-ConvNeXt (Stage 0-1 CSP + ESE)
+  pretrained: true
+  gate: bcgg                                 # bcgg (Bottleneck Context Group Gate) | rga
+  gate_hidden: 16
+  gate_groups: 4
+  gate_kernel: 7
+  gate_channel_kernel: 5
+  gate_inject_value: false
+  use_gem: true
+  gem_p: 3.0
+  use_part_branch: false
+  num_parts: 4
+  use_attention_local: false
+  num_attention_heads: 4
+
+train:
+  dataset: vru                               # vru | vrai
+  seed: 42
+  epochs: 60
+  batch_size: 512
+  base_batch_size: 128
+  base_lr: 3.5e-4                            # Used for ResNet/Swin
+  backbone_lr: 3.0e-5                        # Discriminative LR for DINOv3/E-ConvNeXt backbone
+  head_lr: 3.0e-4                            # Discriminative LR for Gate/FS/Head
+  convnext_weight_decay: 0.05
+  convnext_warmup_epochs: 10
+  grad_accum: 1
+  pk_k: 4
+  strong_aug: false
+  triplet_weight: 0.5
+  triplet_margin: 0.3
+  label_smoothing: 0.1
+  attention_reg_weight: 0.0
+  attn_diversity_weight: 0.0
+  num_workers: 8
+  prefetch_factor: 4
+  pin_memory: true
+  persistent_workers: true
+  channels_last: true
+  use_amp: true
+  amp_dtype: bf16                            # auto | bf16 (recommended for H100) | fp16
+  use_compile: true
+  log_every: 20
+
+eval:
+  run_eval: true
+  eval_every: 10
+  save_best: true
+  best_metric: big_map                       # big_map | medium_map | small_map
+  splits: ["Small", "Medium", "Big"]
+  q_chunk_size: 2048
+  use_fp16_sim: true
+  verbose: false
+  rerank: false
+  rerank_k1: 20
+  rerank_alpha: 0.3
+  tta_flip: false
+  split_seed: 42
+  gallery_mode: random                       # random | first
+  legacy_resize: false

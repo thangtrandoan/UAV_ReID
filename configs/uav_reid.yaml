@@ -1,0 +1,100 @@
+# ============================================================================
+# Stage 2: UAVReIDNet (GASNet + Temporal Encoder) on UAV-Anti-UAV
+# Standardized & Pipeline-Locked Configuration (H100 / Local / Server)
+# ============================================================================
+
+device:
+  platform: server                           # server | colab | local | jetson
+  gpu_jetson: false
+
+paths:
+  raw_data_dir: /data/UAV-Anti-UAV
+  data_dir: /data/processed
+  gasnet_weights: outputs/gasnet/gasnet_vru.best.pth
+  checkpoint_dir: outputs/reidnet/checkpoints
+  log_dir: outputs/reidnet/logs
+
+data_pipeline:
+  frame_stride: 4
+  num_before_frames: 16
+  num_after_frames: 16
+  bbox_padding: 0.2
+  crop_size: 256
+  num_workers: 8
+  uav_anti_uav_dir: /data/UAV-Anti-UAV
+  output_dir: /data/processed
+
+train:
+  seed: 42
+  resume: ""
+  resume_best_rank1: -1.0
+  backbone: dinov3_convnext                  # dinov3_convnext (D_vis=960) | resnet50_ibn (D_vis=2560)
+  econvnext: true                            # E-ConvNeXt variant
+
+  batch_size: 12                             # 12 clips = 4 identities x 3 instances
+  num_instances: 3
+  num_frames: 12
+
+  # Temporal Encoder configuration
+  temporal_type: attention                   # attention | mamba
+  temporal_pool: attn                        # attn | mean
+  temporal_pe: true
+  temporal_d_model: 512
+  temporal_d_out: 512
+  temporal_layers: 2
+  temporal_heads: 8
+  temporal_dropout: 0.1
+
+  num_workers: 8
+  use_amp: true
+  pin_memory: true
+  use_compile: true
+  compile_dynamic: false
+
+  val_freq: 5
+  val_n_list: [8, 12, 16]
+
+  stop_on_target: false
+  early_stop_patience: 0
+  early_stop_min_delta: 1.0e-4
+  target_rank1: 0.85
+  target_spread: 0.05
+
+  stage1:
+    epochs: 30
+    lr: 3.5e-4
+    weight_decay: 5.0e-4
+
+  stage2:
+    epochs: 30
+    lr_backbone: 1.0e-5
+    lr_temporal: 1.0e-4
+    lr_head: 1.0e-4
+    weight_decay: 5.0e-4
+
+  loss:
+    lam1: 1.0                                # Triplet loss weight
+    lam2: 0.0                                # Temporal consistency loss weight
+    lam3: 0.001                              # Center loss weight
+    lr_center: 0.5
+    triplet_margin: 0.3
+    label_smooth: 0.1
+
+eval:
+  model_path: outputs/reidnet/checkpoints/best_model.pth
+  query_json: /data/processed/query_test.json
+  gallery_json: /data/processed/gallery_test.json
+  output_dir: outputs/reidnet/eval_results
+  batch_size: 32
+  num_workers: 8
+  backbone: dinov3_convnext
+  backbone_only: false
+  intra_sequence: false
+  space: fused                               # fused | pre_bn
+  threshold_file: outputs/reidnet/calib_results/calibrated_threshold.json
+
+calibration:
+  output_dir: outputs/reidnet/calib_results
+  cal_ratio: 0.4
+  far_target: 0.001
+  seed: 42
