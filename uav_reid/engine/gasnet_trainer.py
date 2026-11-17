@@ -435,9 +435,12 @@ def evaluate_gasnet_checkpoint(cfg: Dict[str, Any], checkpoint_path: str | Path 
         strong_aug=False, legacy_resize=bool(ec.get("legacy_resize", False))
     )
     num_workers = int(tc.get("num_workers", 8))
+    data_root = Path(pc.get("data_root", "data"))
+    if not (data_root / "VRU").exists() and (Path("data") / "VRU").exists():
+        data_root = Path("data")
     metrics = run_vru_eval(
         model=model,
-        data_root=Path(pc.get("data_root", "/data")),
+        data_root=data_root,
         test_transform=test_tfms,
         batch_size=int(ec.get("batch_size", tc.get("batch_size", 512))),
         num_workers=num_workers,
@@ -505,7 +508,10 @@ def train_gasnet(
     set_seed(seed)
     configure_cuda_for_speed()
 
-    data_root = Path(pc.get("data_root", "/data"))
+    data_root = Path(pc.get("data_root", "data"))
+    if not (data_root / "VRU").exists() and not (data_root / "VRAI").exists():
+        if (Path("data") / "VRU").exists() or (Path("data") / "VRAI").exists():
+            data_root = Path("data")
     dataset_name = str(tc.get("dataset", "vru")).lower()
     epochs = int(tc.get("epochs", 60))
     batch_size = int(tc.get("batch_size", 512))

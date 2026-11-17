@@ -3,7 +3,7 @@
 # ============================================================================
 
 paths:
-  data_root: /data                           # Folder containing VRU/Pic and VRU/train_test_split
+  data_root: data                            # Folder containing VRU/Pic and VRU/train_test_split (or /data in Docker)
   save_path: outputs/gasnet/gasnet_vru.pth
   log_path: outputs/gasnet/log.txt
 
