@@ -180,7 +180,13 @@ def generate_topk_retrieval_panel(
     q_bordered = add_colored_border(q_pil, color="#1E90FF", border_width=6)
 
     axes[0].imshow(q_bordered)
-    axes[0].set_title(f"Query (ID:{query_sample.vehicle_id})", fontsize=10, fontweight="bold", color="#1E90FF")
+    q_cam_str = f" | Cam:{query_sample.camera_id}" if query_sample.camera_id >= 0 else ""
+    axes[0].set_title(
+        f"Query\nID:{query_sample.vehicle_id}{q_cam_str}",
+        fontsize=10,
+        fontweight="bold",
+        color="#1E90FF",
+    )
     axes[0].axis("off")
 
     # Top-K Gallery images
@@ -199,8 +205,9 @@ def generate_topk_retrieval_panel(
         g_bordered = add_colored_border(g_pil, color=border_color, border_width=6)
         ax.imshow(g_bordered)
         title_color = "#28A745" if is_match else "#DC3545"
+        g_cam_str = f" | Cam:{g_sample.camera_id}" if g_sample.camera_id >= 0 else ""
         ax.set_title(
-            f"Rank-{i+1}: {status_text}\nID:{g_sample.vehicle_id} | Sim:{sim:.3f}",
+            f"Rank-{i+1}: {status_text}\nID:{g_sample.vehicle_id}{g_cam_str} | Sim:{sim:.3f}",
             fontsize=9,
             fontweight="bold",
             color=title_color,
@@ -233,20 +240,7 @@ def run_qualitative_evaluation(
 
     results = {"attention_maps": [], "retrieval_panels": []}
 
-    # 1. Attention Heatmap Comparison
-    if model_rga is not None and len(query_dataset) > 0:
-        attn_dir = out_dir / "attention_heatmaps"
-        sample_queries = [query_dataset.samples[i] for i in range(min(num_queries_to_visualize, len(query_dataset)))]
-        saved_attn = generate_attention_comparison_figures(
-            model_rga=model_rga,
-            model_bcgg=model,
-            sample_images=sample_queries,
-            output_dir=attn_dir,
-            gate_stage="ga3",
-        )
-        results["attention_maps"] = saved_attn
-
-    # 2. Top-5 Retrieval Visualizations
+    # 1. Extract features for Top-5 Retrieval and diverse query selection
     from torch.utils.data import DataLoader
     q_loader = DataLoader(query_dataset, batch_size=64, shuffle=False)
     g_loader = DataLoader(gallery_dataset, batch_size=64, shuffle=False)
@@ -259,16 +253,44 @@ def run_qualitative_evaluation(
     distmat = compute_distance_matrix(q_feats, g_feats, metric="cosine")
     indices = np.argsort(distmat, axis=1)
 
-    # Find diverse queries with matches in gallery
+    has_cams = bool((q_cams >= 0).any() and (g_cams >= 0).any())
+    q_pids_np = q_pids.numpy()
+    g_pids_np = g_pids.numpy()
+    q_cams_np = q_cams.numpy()
+    g_cams_np = g_cams.numpy()
+
+    # Find diverse queries (unique vehicle_id) with valid cross-camera matches in gallery
     chosen_queries = []
-    g_pids_set = set(g_pids.numpy())
+    seen_pids = set()
     for q_idx in range(len(query_dataset)):
-        q_sample = query_dataset.samples[q_idx]
-        if q_sample.vehicle_id in g_pids_set:
+        q_pid = int(q_pids_np[q_idx])
+        if q_pid in seen_pids:
+            continue
+        q_cam = int(q_cams_np[q_idx])
+        if has_cams:
+            valid_match = bool(np.any((g_pids_np == q_pid) & (g_cams_np != q_cam)))
+        else:
+            valid_match = bool(np.any(g_pids_np == q_pid))
+        if valid_match:
             chosen_queries.append(q_idx)
+            seen_pids.add(q_pid)
         if len(chosen_queries) >= num_queries_to_visualize:
             break
 
+    # 2. Attention Heatmap Comparison on the same diverse queries
+    if model_rga is not None and len(chosen_queries) > 0:
+        attn_dir = out_dir / "attention_heatmaps"
+        sample_queries = [query_dataset.samples[i] for i in chosen_queries]
+        saved_attn = generate_attention_comparison_figures(
+            model_rga=model_rga,
+            model_bcgg=model,
+            sample_images=sample_queries,
+            output_dir=attn_dir,
+            gate_stage="ga3",
+        )
+        results["attention_maps"] = saved_attn
+
+    # 3. Top-5 Retrieval Visualizations (with standard Re-ID cross-camera junk filtering)
     retrieval_dir = out_dir / "retrieval_top5"
     for rank_idx, q_idx in enumerate(chosen_queries):
         q_sample = query_dataset.samples[q_idx]
@@ -276,11 +298,16 @@ def run_qualitative_evaluation(
 
         top_gallery_samples = []
         top_sims = []
-        for g_idx in order[:top_k]:
+        for g_idx in order:
             g_sample = gallery_dataset.samples[g_idx]
+            # Filter out junk images: same vehicle ID captured by the exact same camera
+            if has_cams and g_sample.vehicle_id == q_sample.vehicle_id and g_sample.camera_id == q_sample.camera_id:
+                continue
             sim = float(1.0 - distmat[q_idx, g_idx])
             top_gallery_samples.append(g_sample)
             top_sims.append(sim)
+            if len(top_gallery_samples) >= top_k:
+                break
 
         save_file = retrieval_dir / f"retrieval_query_{rank_idx+1}_id_{q_sample.vehicle_id}.png"
         panel_path = generate_topk_retrieval_panel(

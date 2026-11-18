@@ -34,20 +34,37 @@ python3 -m scripts.eval_gasnet.run_all --all
 ```bash
 python3 -m scripts.eval_gasnet.run_all --table 5.1
 ```
-* Đánh giá mAP, Rank-1, Rank-5, mINP trên các tập dữ liệu:
-  * VeRi-776
-  * VRU / VehicleID (Split Small - 1200, Medium - 2400, Large - 8000)
+* So sánh 3 cấu hình:
+  * `ResNet50-IBN (RGA)`: Baseline backbone giữ nguyên khối RGA.
+  * `DINO-ConvNeXt (RGA)`: Đổi sang backbone DINO-ConvNeXt và giữ nguyên RGA (cô lập chính xác hiệu quả của việc thay thế backbone).
+  * `DINO-ConvNeXt (BCGG)`: Phiên bản nâng cấp toàn diện cả backbone lẫn khối gate BCGG.
+* Đánh giá độc lập trên từng tập dữ liệu riêng biệt:
+  * **VeRi-776**: 1,678 queries, 11,579 gallery.
+  * **VehicleID**: 1,232 queries (Cam A), 1,232 gallery (Cam B) từ `data/VehicleID/img_database`.
+  * **VRU**: Đánh giá trên 3 split riêng biệt:
+    * `Small (1200)`: 12,720 queries, 1,200 gallery.
+    * `Medium (2400)`: 24,945 queries, 2,400 gallery.
+    * `Large (8000)`: 83,595 queries, 8,000 gallery.
+  * **VRAI**: Tập kiểm thử chuẩn UAV góc nhìn trên cao (1,000 identities validation).
+* Độ đo tính toán: mAP, Rank-1, Rank-5, Rank-10, mINP.
 
 #### 2. Thí nghiệm 2 — Bảng 5.2: Ablation Lũy tiến của GASNet
 ```bash
-python3 -m scripts.eval_gasnet.run_all --table 5.2
+python3 -m scripts.eval_gasnet.run_all --table 5.2 --ablation-dataset vru
 ```
+* Tùy chọn tập dữ liệu đánh giá độ chính xác qua `--ablation-dataset`: `vru` (mặc định VRU Small), `veri` (VeRi-776), `vehicleid`, hoặc `vrai`.
 * Đánh giá lũy tiến 4 cấu hình:
   * Hàng 1: GASNet gốc (`ResNet-50 + RGA`)
   * Hàng 2: GASNet + `DINO-ConvNeXt + RGA`
   * Hàng 3: GASNet + `DINO-ConvNeXt + BCGG` (Train mode)
   * Hàng 4: GASNet + `DINO-ConvNeXt + BCGG` (Deploy mode - RepDW Folded)
-* Đo đầy đủ: #Params, GFLOPs, Latency (ms), FPS (BS=1 & Batch), Peak VRAM (MB) và mAP/Rank-1/mINP.
+* Đo đầy đủ hệ thống độ đo:
+  * **Tham số**: #Params Tổng (M) và riêng khối Gate #Params (K) (chứng minh BCGG cắt giảm 99% tham số gate).
+  * **Chi phí tính toán**: GFLOPs và GMACs (trên tensor 1×3×224×224).
+  * **Độ trễ suy luận**: Tách riêng Latency Tổng (ms), Backbone Time (ms) và Gate + Head Time (ms).
+  * **Thông lượng**: Throughput trực tuyến (BS=1 FPS) và theo lô (Batch FPS).
+  * **Bộ nhớ**: Peak GPU VRAM (MB) qua `torch.cuda.max_memory_allocated()`.
+  * **Độ chính xác**: mAP, Rank-1, Rank-5, Rank-10, mINP.
 
 #### 3. Thí nghiệm 2 — Bảng 5.3: So sánh Chi phí Tính toán riêng khối Gate (RGA vs BCGG)
 ```bash
@@ -57,13 +74,15 @@ python3 -m scripts.eval_gasnet.run_all --table 5.3
   * 224×224 (Feature size: 14×14)
   * 256×256 (Feature size: 16×16)
   * 384×384 (Feature size: 24×24)
+* Đo các chỉ số: #Params (K), GFLOPs, Latency (ms), Peak VRAM (MB) và Đặc tính / Khả năng mở rộng.
 * Làm nổi bật giới hạn lỗi kích thước cố định của RGA và bùng nổ bộ nhớ bậc hai O((HW)^2) so với tính thích ứng và tuyến tính O(HW) của BCGG.
 
 #### 4. Trực quan hóa (Qualitative Analysis)
 ```bash
-python3 -m scripts.eval_gasnet.run_all --visualize
+python3 -m scripts.eval_gasnet.run_all --visualize --vis-dataset veri --num-vis 5
 ```
-* Sinh bản đồ nhiệt chú ý Attention Heatmaps (RGA vs BCGG) từ `last_attention`.
+* Tùy chọn tập dữ liệu trực quan qua `--vis-dataset`: `veri`, `vru`, `vehicleid`, `vrai`.
+* Sinh bản đồ nhiệt chú ý Attention Heatmaps (RGA vs BCGG) từ `last_attention` so sánh độ tập trung vào thân xe và loại bỏ nền.
 * Sinh bảng ảnh truy vấn Top-5 (Query + Top-5 Gallery) với viền Xanh lá cho ảnh đúng (True Match) và viền Đỏ cho ảnh sai (False Match).
 
 ---

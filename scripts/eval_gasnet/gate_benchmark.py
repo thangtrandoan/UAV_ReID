@@ -111,14 +111,14 @@ def run_table_5_3_benchmark(
         if (feat_h, feat_w) == (14, 14):
             bench_rga = benchmark_single_gate(rga_224, input_shape, device)
             row_rga = {
-                "gate": "RGA (Fixed 224)",
-                "resolution": res_str,
-                "params_K": bench_rga["params_K"],
-                "GFLOPs": bench_rga["GFLOPs"],
-                "latency_ms": bench_rga["latency_ms"],
-                "latency_std": bench_rga["latency_std"],
-                "vram_MB": bench_rga["peak_vram_MB"],
-                "status": "OK",
+                "Kiến trúc Gate": "RGA (Cố định 224x224)",
+                "Độ phân giải": res_str,
+                "Feature Map": f"{feat_h}x{feat_w}",
+                "#Params (K)": f"{bench_rga['params_K']:.1f}",
+                "GFLOPs": f"{bench_rga['GFLOPs']:.4f}",
+                "Latency (ms)": f"{bench_rga['latency_ms']:.2f} ± {bench_rga['latency_std']:.2f}",
+                "Peak VRAM (MB)": f"{bench_rga['peak_vram_MB']:.1f}",
+                "Đặc tính / Khả năng mở rộng": "OK (Baseline)",
             }
         else:
             # Test RGA failure with mismatched dimensions
@@ -126,66 +126,66 @@ def run_table_5_3_benchmark(
                 dummy = torch.randn(*input_shape, device=device)
                 _ = rga_224(dummy)
                 status = "Passed"
-            except ValueError as e:
-                status = "FAILED (Fixed Size)"
+            except (ValueError, RuntimeError) as e:
+                status = "LỖI (Crash cố định kích thước)"
             row_rga = {
-                "gate": "RGA (Fixed 224)",
-                "resolution": res_str,
-                "params_K": count_parameters(rga_224)["total_params_M"] * 1000.0,
-                "GFLOPs": float("nan"),
-                "latency_ms": float("nan"),
-                "latency_std": float("nan"),
-                "vram_MB": float("nan"),
-                "status": status,
+                "Kiến trúc Gate": "RGA (Cố định 224x224)",
+                "Độ phân giải": res_str,
+                "Feature Map": f"{feat_h}x{feat_w}",
+                "#Params (K)": f"{count_parameters(rga_224)['total_params_M'] * 1000.0:.1f}",
+                "GFLOPs": "N/A",
+                "Latency (ms)": "N/A",
+                "Peak VRAM (MB)": "N/A",
+                "Đặc tính / Khả năng mở rộng": status,
             }
         results.append(row_rga)
-        print(f"{row_rga['gate']:<32} {row_rga['resolution']:<12} {row_rga['params_K']:<12.1f} {row_rga['GFLOPs']:<10.4f} {row_rga['latency_ms']:>6.2f} +/- {row_rga['latency_std']:<6.2f} {row_rga['vram_MB']:<14.1f} {row_rga['status']:<15}")
+        print(f"{row_rga['Kiến trúc Gate']:<28} {row_rga['Độ phân giải']:<10} {row_rga['#Params (K)']:<12} {row_rga['GFLOPs']:<10} {row_rga['Latency (ms)']:<18} {row_rga['Peak VRAM (MB)']:<14} {row_rga['Đặc tính / Khả năng mở rộng']:<25}")
 
         # --- B. RGA (Re-instantiated / Adapted for this resolution) ---
         rga_adapted = _make_gate_block("rga", channels, (feat_h, feat_w)).to(device).eval()
         bench_rga_adapt = benchmark_single_gate(rga_adapted, input_shape, device)
         row_rga_adapt = {
-            "gate": "RGA (Adapted resolution)",
-            "resolution": res_str,
-            "params_K": bench_rga_adapt["params_K"],
-            "GFLOPs": bench_rga_adapt["GFLOPs"],
-            "latency_ms": bench_rga_adapt["latency_ms"],
-            "latency_std": bench_rga_adapt["latency_std"],
-            "vram_MB": bench_rga_adapt["peak_vram_MB"],
-            "status": "O(N^2) Explosion",
+            "Kiến trúc Gate": "RGA (Adapted theo độ phân giải)",
+            "Độ phân giải": res_str,
+            "Feature Map": f"{feat_h}x{feat_w}",
+            "#Params (K)": f"{bench_rga_adapt['params_K']:.1f}",
+            "GFLOPs": f"{bench_rga_adapt['GFLOPs']:.4f}",
+            "Latency (ms)": f"{bench_rga_adapt['latency_ms']:.2f} ± {bench_rga_adapt['latency_std']:.2f}",
+            "Peak VRAM (MB)": f"{bench_rga_adapt['peak_vram_MB']:.1f}",
+            "Đặc tính / Khả năng mở rộng": "Bùng nổ bộ nhớ O((HW)^2)",
         }
         results.append(row_rga_adapt)
-        print(f"{row_rga_adapt['gate']:<32} {row_rga_adapt['resolution']:<12} {row_rga_adapt['params_K']:<12.1f} {row_rga_adapt['GFLOPs']:<10.4f} {row_rga_adapt['latency_ms']:>6.2f} +/- {row_rga_adapt['latency_std']:<6.2f} {row_rga_adapt['vram_MB']:<14.1f} {row_rga_adapt['status']:<15}")
+        print(f"{row_rga_adapt['Kiến trúc Gate']:<28} {row_rga_adapt['Độ phân giải']:<10} {row_rga_adapt['#Params (K)']:<12} {row_rga_adapt['GFLOPs']:<10} {row_rga_adapt['Latency (ms)']:<18} {row_rga_adapt['Peak VRAM (MB)']:<14} {row_rga_adapt['Đặc tính / Khả năng mở rộng']:<25}")
 
         # --- C. BCGG (Train mode) ---
         bench_bcgg = benchmark_single_gate(bcgg_train, input_shape, device)
         row_bcgg = {
-            "gate": "BCGG (Train mode)",
-            "resolution": res_str,
-            "params_K": bench_bcgg["params_K"],
-            "GFLOPs": bench_bcgg["GFLOPs"],
-            "latency_ms": bench_bcgg["latency_ms"],
-            "latency_std": bench_bcgg["latency_std"],
-            "vram_MB": bench_bcgg["peak_vram_MB"],
-            "status": "Adaptive O(N)",
+            "Kiến trúc Gate": "BCGG (Train mode)",
+            "Độ phân giải": res_str,
+            "Feature Map": f"{feat_h}x{feat_w}",
+            "#Params (K)": f"{bench_bcgg['params_K']:.1f}",
+            "GFLOPs": f"{bench_bcgg['GFLOPs']:.4f}",
+            "Latency (ms)": f"{bench_bcgg['latency_ms']:.2f} ± {bench_bcgg['latency_std']:.2f}",
+            "Peak VRAM (MB)": f"{bench_bcgg['peak_vram_MB']:.1f}",
+            "Đặc tính / Khả năng mở rộng": "Thích ứng linh hoạt O(HW)",
         }
         results.append(row_bcgg)
-        print(f"{row_bcgg['gate']:<32} {row_bcgg['resolution']:<12} {row_bcgg['params_K']:<12.1f} {row_bcgg['GFLOPs']:<10.4f} {row_bcgg['latency_ms']:>6.2f} +/- {row_bcgg['latency_std']:<6.2f} {row_bcgg['vram_MB']:<14.1f} {row_bcgg['status']:<15}")
+        print(f"{row_bcgg['Kiến trúc Gate']:<28} {row_bcgg['Độ phân giải']:<10} {row_bcgg['#Params (K)']:<12} {row_bcgg['GFLOPs']:<10} {row_bcgg['Latency (ms)']:<18} {row_bcgg['Peak VRAM (MB)']:<14} {row_bcgg['Đặc tính / Khả năng mở rộng']:<25}")
 
         # --- D. BCGG (Deploy mode - RepDW Folded) ---
         bench_deploy = benchmark_single_gate(bcgg_deploy, input_shape, device)
         row_deploy = {
-            "gate": "BCGG (Deploy - RepDW Folded)",
-            "resolution": res_str,
-            "params_K": bench_deploy["params_K"],
-            "GFLOPs": bench_deploy["GFLOPs"],
-            "latency_ms": bench_deploy["latency_ms"],
-            "latency_std": bench_deploy["latency_std"],
-            "vram_MB": bench_deploy["peak_vram_MB"],
-            "status": "Optimal Fused",
+            "Kiến trúc Gate": "BCGG (Deploy - RepDW Folded)",
+            "Độ phân giải": res_str,
+            "Feature Map": f"{feat_h}x{feat_w}",
+            "#Params (K)": f"{bench_deploy['params_K']:.1f}",
+            "GFLOPs": f"{bench_deploy['GFLOPs']:.4f}",
+            "Latency (ms)": f"{bench_deploy['latency_ms']:.2f} ± {bench_deploy['latency_std']:.2f}",
+            "Peak VRAM (MB)": f"{bench_deploy['peak_vram_MB']:.1f}",
+            "Đặc tính / Khả năng mở rộng": "Tối ưu hợp nhất (Zero-overhead)",
         }
         results.append(row_deploy)
-        print(f"{row_deploy['gate']:<32} {row_deploy['resolution']:<12} {row_deploy['params_K']:<12.1f} {row_deploy['GFLOPs']:<10.4f} {row_deploy['latency_ms']:>6.2f} +/- {row_deploy['latency_std']:<6.2f} {row_deploy['vram_MB']:<14.1f} {row_deploy['status']:<15}")
+        print(f"{row_deploy['Kiến trúc Gate']:<28} {row_deploy['Độ phân giải']:<10} {row_deploy['#Params (K)']:<12} {row_deploy['GFLOPs']:<10} {row_deploy['Latency (ms)']:<18} {row_deploy['Peak VRAM (MB)']:<14} {row_deploy['Đặc tính / Khả năng mở rộng']:<25}")
         print("-" * 115)
 
     return results

@@ -43,7 +43,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.eval_gasnet.datasets import (
     create_eval_dataloader,
+    load_vehicleid,
     load_veri776,
+    load_vrai_val,
     load_vru_split,
     resolve_dataset_path,
 )
@@ -135,14 +137,17 @@ def run_experiment_1_backbone_comparison(
     output_dir: Path = Path("outputs/gasnet_report"),
     batch_size: int = 64,
     device: Optional[torch.device] = None,
+    legacy_resize: bool = False,
 ) -> List[Dict[str, Any]]:
     """Run Table 5.1: Compare ResNet50-IBN vs DINO-ConvNeXt on VeRi-776, VRU/VehicleID."""
     print("\n" + "=" * 90)
     print("THÍ NGHIỆM 1 — BẢNG 5.1: SO SÁNH HIỆU QUẢ THAY THẾ BACKBONE DINO-CONVNEXT")
+    print(f"Preprocess: {'Resize 256 -> CenterCrop 224' if legacy_resize else 'Direct Resize 224x224 (Standard Vehicle Re-ID)'}")
     print("=" * 90)
 
     models_to_test = [
-        ("ResNet50-IBN / ResNet50", "resnet_rga"),
+        ("ResNet50-IBN (RGA)", "resnet_rga"),
+        ("DINO-ConvNeXt (RGA)", "convnext_rga"),
         ("DINO-ConvNeXt (BCGG)", "convnext_bcgg_deploy"),
     ]
 
@@ -150,7 +155,7 @@ def run_experiment_1_backbone_comparison(
 
     # 1. VeRi-776
     try:
-        q_veri, g_veri = load_veri776(root_dir=data_root)
+        q_veri, g_veri = load_veri776(root_dir=data_root, legacy_resize=legacy_resize)
         print(f"[DATA] VeRi-776 loaded: {len(q_veri)} queries, {len(g_veri)} gallery images.")
         for bb_name, variant in models_to_test:
             print(f"[EVAL] Evaluating {bb_name} on VeRi-776...")
@@ -163,36 +168,84 @@ def run_experiment_1_backbone_comparison(
                 "mAP (%)": f"{metrics['mAP']:.2f}",
                 "Rank-1 (%)": f"{metrics['Rank-1']:.2f}",
                 "Rank-5 (%)": f"{metrics['Rank-5']:.2f}",
+                "Rank-10 (%)": f"{metrics['Rank-10']:.2f}",
                 "mINP (%)": f"{metrics['mINP']:.2f}",
             }
             table_data.append(row)
-            print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | mINP: {row['mINP (%)']}")
+            print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | Rank-10: {row['Rank-10 (%)']} | mINP: {row['mINP (%)']}")
     except Exception as exc:
         print(f"[WARNING] Skipping VeRi-776 evaluation: {exc}")
 
-    # 2. VRU / VehicleID (Small, Medium, Large)
+    # 2. VehicleID (Đánh giá riêng biệt từ data/VehicleID/)
+    try:
+        q_veh, g_veh = load_vehicleid(root_dir=data_root, legacy_resize=legacy_resize)
+        print(f"[DATA] VehicleID (Brno) loaded: {len(q_veh)} queries (Cam A), {len(g_veh)} gallery (Cam B).")
+        for bb_name, variant in models_to_test:
+            print(f"[EVAL] Evaluating {bb_name} on VehicleID...")
+            model, meta = load_gasnet_variant(variant, device=device)
+            metrics = evaluate_dataset_on_model(model, q_veh, g_veh, batch_size=batch_size, device=device)
+            row = {
+                "Dataset": "VehicleID",
+                "Split": "Pairs (1232 A↔B)",
+                "Backbone": bb_name,
+                "mAP (%)": f"{metrics['mAP']:.2f}",
+                "Rank-1 (%)": f"{metrics['Rank-1']:.2f}",
+                "Rank-5 (%)": f"{metrics['Rank-5']:.2f}",
+                "Rank-10 (%)": f"{metrics['Rank-10']:.2f}",
+                "mINP (%)": f"{metrics['mINP']:.2f}",
+            }
+            table_data.append(row)
+            print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | Rank-10: {row['Rank-10 (%)']} | mINP: {row['mINP (%)']}")
+    except Exception as exc:
+        print(f"[WARNING] Skipping VehicleID evaluation: {exc}")
+
+    # 3. VRU (Đánh giá riêng biệt từ data/VRU/ theo 3 split Small, Medium, Large)
     vru_splits = [("Small (1200)", "Small"), ("Medium (2400)", "Medium"), ("Large (8000)", "Big")]
     for split_display, split_key in vru_splits:
         try:
-            q_vru, g_vru = load_vru_split(root_dir=data_root, split_name=split_key, seed=42)
-            print(f"[DATA] VRU / VehicleID {split_display} loaded: {len(q_vru)} queries, {len(g_vru)} gallery.")
+            q_vru, g_vru = load_vru_split(root_dir=data_root, split_name=split_key, seed=42, legacy_resize=legacy_resize)
+            print(f"[DATA] VRU {split_display} loaded: {len(q_vru)} queries, {len(g_vru)} gallery.")
             for bb_name, variant in models_to_test:
                 print(f"[EVAL] Evaluating {bb_name} on VRU {split_display}...")
                 model, meta = load_gasnet_variant(variant, device=device)
                 metrics = evaluate_dataset_on_model(model, q_vru, g_vru, batch_size=batch_size, device=device)
                 row = {
-                    "Dataset": "VehicleID / VRU",
+                    "Dataset": "VRU",
                     "Split": split_display,
                     "Backbone": bb_name,
                     "mAP (%)": f"{metrics['mAP']:.2f}",
                     "Rank-1 (%)": f"{metrics['Rank-1']:.2f}",
                     "Rank-5 (%)": f"{metrics['Rank-5']:.2f}",
+                    "Rank-10 (%)": f"{metrics['Rank-10']:.2f}",
                     "mINP (%)": f"{metrics['mINP']:.2f}",
                 }
                 table_data.append(row)
-                print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | mINP: {row['mINP (%)']}")
+                print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | Rank-10: {row['Rank-10 (%)']} | mINP: {row['mINP (%)']}")
         except Exception as exc:
             print(f"[WARNING] Skipping VRU {split_display}: {exc}")
+
+    # 4. VRAI (Đánh giá trên tập validation 1000 IDs ảnh UAV góc nhìn trên cao)
+    try:
+        q_vrai, g_vrai = load_vrai_val(root_dir=data_root, num_ids=1000, seed=42, legacy_resize=legacy_resize)
+        print(f"[DATA] VRAI (Val 1000 IDs) loaded: {len(q_vrai)} queries, {len(g_vrai)} gallery.")
+        for bb_name, variant in models_to_test:
+            print(f"[EVAL] Evaluating {bb_name} on VRAI...")
+            model, meta = load_gasnet_variant(variant, device=device)
+            metrics = evaluate_dataset_on_model(model, q_vrai, g_vrai, batch_size=batch_size, device=device)
+            row = {
+                "Dataset": "VRAI",
+                "Split": "Val (1000 IDs)",
+                "Backbone": bb_name,
+                "mAP (%)": f"{metrics['mAP']:.2f}",
+                "Rank-1 (%)": f"{metrics['Rank-1']:.2f}",
+                "Rank-5 (%)": f"{metrics['Rank-5']:.2f}",
+                "Rank-10 (%)": f"{metrics['Rank-10']:.2f}",
+                "mINP (%)": f"{metrics['mINP']:.2f}",
+            }
+            table_data.append(row)
+            print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | Rank-10: {row['Rank-10 (%)']} | mINP: {row['mINP (%)']}")
+    except Exception as exc:
+        print(f"[WARNING] Skipping VRAI evaluation: {exc}")
 
     if table_data:
         save_markdown_and_csv(
@@ -213,6 +266,8 @@ def run_experiment_2_progressive_ablation(
     output_dir: Path = Path("outputs/gasnet_report"),
     batch_size: int = 64,
     device: Optional[torch.device] = None,
+    ablation_dataset: str = "vru",
+    legacy_resize: bool = False,
 ) -> List[Dict[str, Any]]:
     """Run Table 5.2: Progressive Ablation of GASNet across 4 variants.
 
@@ -223,6 +278,7 @@ def run_experiment_2_progressive_ablation(
     """
     print("\n" + "=" * 90)
     print("THÍ NGHIỆM 2 — BẢNG 5.2: ABLATION LŨY TIẾN CỦA GASNet (ĐỘ CHÍNH XÁC & HIỆU NĂNG)")
+    print(f"Preprocess: {'Resize 256 -> CenterCrop 224' if legacy_resize else 'Direct Resize 224x224 (Standard Vehicle Re-ID)'}")
     print("=" * 90)
 
     rows_config = [
@@ -232,19 +288,51 @@ def run_experiment_2_progressive_ablation(
         ("GASNet + DINO-ConvNeXt + BCGG (Deploy - RepDW Folded)", "convnext_bcgg_deploy"),
     ]
 
-    # Select evaluation dataset for accuracy: prefer VeRi-776 or VRU Small
+    # Select evaluation dataset for accuracy: prefer specified ablation_dataset
     eval_dataset_q = None
     eval_dataset_g = None
     dataset_title = "VRU (Small)"
-    try:
-        eval_dataset_q, eval_dataset_g = load_veri776(root_dir=data_root)
-        dataset_title = "VeRi-776"
-    except Exception:
+
+    if ablation_dataset.lower() == "vru":
         try:
-            eval_dataset_q, eval_dataset_g = load_vru_split(root_dir=data_root, split_name="Small", seed=42)
+            eval_dataset_q, eval_dataset_g = load_vru_split(root_dir=data_root, split_name="Small", seed=42, legacy_resize=legacy_resize)
+            dataset_title = "VRU (Small)"
+            print(f"[DATA] Selected {dataset_title} for Table 5.2 Ablation accuracy.")
+        except Exception as e:
+            print(f"[WARNING] Could not load VRU: {e}")
+    elif ablation_dataset.lower() == "vehicleid":
+        try:
+            eval_dataset_q, eval_dataset_g = load_vehicleid(root_dir=data_root, legacy_resize=legacy_resize)
+            dataset_title = "VehicleID"
+            print(f"[DATA] Selected {dataset_title} for Table 5.2 Ablation accuracy.")
+        except Exception as e:
+            print(f"[WARNING] Could not load VehicleID: {e}")
+    elif ablation_dataset.lower() == "veri":
+        try:
+            eval_dataset_q, eval_dataset_g = load_veri776(root_dir=data_root, legacy_resize=legacy_resize)
+            dataset_title = "VeRi-776"
+            print(f"[DATA] Selected {dataset_title} for Table 5.2 Ablation accuracy.")
+        except Exception as e:
+            print(f"[WARNING] Could not load VeRi-776: {e}")
+    elif ablation_dataset.lower() == "vrai":
+        try:
+            eval_dataset_q, eval_dataset_g = load_vrai_val(root_dir=data_root, num_ids=1000, seed=42, legacy_resize=legacy_resize)
+            dataset_title = "VRAI (Val 1000)"
+            print(f"[DATA] Selected {dataset_title} for Table 5.2 Ablation accuracy.")
+        except Exception as e:
+            print(f"[WARNING] Could not load VRAI: {e}")
+
+    # Fallback if preferred dataset failed to load
+    if eval_dataset_q is None:
+        try:
+            eval_dataset_q, eval_dataset_g = load_vru_split(root_dir=data_root, split_name="Small", seed=42, legacy_resize=legacy_resize)
             dataset_title = "VRU (Small)"
         except Exception:
-            pass
+            try:
+                eval_dataset_q, eval_dataset_g = load_veri776(root_dir=data_root, legacy_resize=legacy_resize)
+                dataset_title = "VeRi-776"
+            except Exception:
+                pass
 
     table_data: List[Dict[str, Any]] = []
 
@@ -256,7 +344,7 @@ def run_experiment_2_progressive_ablation(
         eff = run_full_efficiency_profile(model, img_size=224, device=device)
 
         # 2. Accuracy evaluation
-        map_val, r1_val, r5_val, minp_val = "-", "-", "-", "-"
+        map_val, r1_val, r5_val, r10_val, minp_val = "-", "-", "-", "-", "-"
         if eval_dataset_q is not None and eval_dataset_g is not None:
             print(f" -> Evaluating accuracy on {dataset_title}...")
             metrics = evaluate_dataset_on_model(
@@ -265,22 +353,29 @@ def run_experiment_2_progressive_ablation(
             map_val = f"{metrics['mAP']:.2f}"
             r1_val = f"{metrics['Rank-1']:.2f}"
             r5_val = f"{metrics['Rank-5']:.2f}"
+            r10_val = f"{metrics['Rank-10']:.2f}"
             minp_val = f"{metrics['mINP']:.2f}"
 
         row = {
             "Mô hình / Biến thể": name,
-            "#Params (M)": f"{eff['params_total_M']:.2f}",
+            "#Params Tổng (M)": f"{eff['params_total_M']:.2f}",
+            "Gate #Params (K)": f"{eff['params_gate_K']:.1f}",
             "GFLOPs": f"{eff['GFLOPs']:.2f}",
-            "Latency (ms)": f"{eff['latency_online_ms']:.2f} ± {eff['latency_online_std']:.2f}",
+            "GMACs": f"{eff['GMACs']:.2f}",
+            "Latency Tổng (ms)": f"{eff['latency_online_ms']:.2f} ± {eff['latency_online_std']:.2f}",
+            "Backbone (ms)": f"{eff['latency_backbone_ms']:.2f}",
+            "Gate+Head (ms)": f"{eff['latency_gate_head_ms']:.2f}",
             "Throughput BS=1 (FPS)": f"{eff['fps_online']:.1f}",
             "Throughput Batch (FPS)": f"{eff['fps_batch']:.1f}",
             "Peak VRAM (MB)": f"{eff['peak_vram_MB']:.1f}",
             f"mAP (%) [{dataset_title}]": map_val,
             f"Rank-1 (%) [{dataset_title}]": r1_val,
+            f"Rank-5 (%) [{dataset_title}]": r5_val,
+            f"Rank-10 (%) [{dataset_title}]": r10_val,
             f"mINP (%) [{dataset_title}]": minp_val,
         }
         table_data.append(row)
-        print(f" -> #Params: {row['#Params (M)']}M | GFLOPs: {row['GFLOPs']} | Latency: {row['Latency (ms)']} ms | BS=1 FPS: {row['Throughput BS=1 (FPS)']} | Peak VRAM: {row['Peak VRAM (MB)']} MB")
+        print(f" -> #Params: {row['#Params Tổng (M)']}M (Gate: {row['Gate #Params (K)']}K) | GFLOPs: {row['GFLOPs']} | Latency: {row['Latency Tổng (ms)']} ms (BB: {row['Backbone (ms)']} ms, Gate+Head: {row['Gate+Head (ms)']} ms) | BS=1 FPS: {row['Throughput BS=1 (FPS)']} | Peak VRAM: {row['Peak VRAM (MB)']} MB")
 
     if table_data:
         save_markdown_and_csv(
@@ -303,7 +398,11 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64, help="Batch size for feature extraction")
     parser.add_argument("--device", type=str, default=None, help="Device to use ('cuda' or 'cpu')")
     parser.add_argument("--table", type=str, choices=["5.1", "5.2", "5.3", "all"], default="all", help="Table(s) to benchmark")
+    parser.add_argument("--ablation-dataset", type=str, choices=["vru", "veri", "vehicleid", "vrai"], default="vru", help="Dataset for Table 5.2 Ablation accuracy ('vru', 'veri', 'vehicleid', or 'vrai')")
+    parser.add_argument("--legacy-resize", action="store_true", help="Use legacy ImageNet resize (Resize 256 then CenterCrop 224) instead of direct Resize 224")
     parser.add_argument("--visualize", action="store_true", help="Generate qualitative visualizations (Attention Heatmaps + Top-5)")
+    parser.add_argument("--vis-dataset", type=str, choices=["veri", "vru", "vehicleid", "vrai"], default="veri", help="Dataset to sample queries for qualitative visualizations")
+    parser.add_argument("--num-vis", type=int, default=5, help="Number of queries to visualize")
     parser.add_argument("--all", action="store_true", help="Run all benchmarks and qualitative visualizations")
     args = parser.parse_args()
 
@@ -327,6 +426,7 @@ def main():
             output_dir=out_dir,
             batch_size=args.batch_size,
             device=device,
+            legacy_resize=args.legacy_resize,
         )
 
     # 2. Table 5.2
@@ -337,6 +437,8 @@ def main():
             output_dir=out_dir,
             batch_size=args.batch_size,
             device=device,
+            ablation_dataset=args.ablation_dataset,
+            legacy_resize=args.legacy_resize,
         )
 
     # 3. Table 5.3
@@ -353,20 +455,44 @@ def main():
     if run_all_flag or args.visualize:
         print("\n" + "=" * 90)
         print("TRỰC QUAN HÓA (QUALITATIVE ANALYSIS)")
+        print(f"Dataset: {args.vis_dataset.upper()} | Samples: {args.num_vis}")
         print("=" * 90)
         try:
             model_bcgg, _ = load_gasnet_variant("convnext_bcgg_train", device=device)
             model_rga, _ = load_gasnet_variant("convnext_rga", device=device)
 
-            # Load queries for visualization
+            # Load queries for visualization according to args.vis_dataset
             q_ds, g_ds = None, None
-            try:
-                q_ds, g_ds = load_veri776(root_dir=args.data_root)
-            except Exception:
+            if args.vis_dataset == "veri":
                 try:
-                    q_ds, g_ds = load_vru_split(root_dir=args.data_root, split_name="Small", seed=42)
+                    q_ds, g_ds = load_veri776(root_dir=args.data_root, legacy_resize=args.legacy_resize)
+                except Exception as e:
+                    print(f"[WARNING] Could not load VeRi-776 for visualization: {e}")
+            elif args.vis_dataset == "vru":
+                try:
+                    q_ds, g_ds = load_vru_split(root_dir=args.data_root, split_name="Small", seed=42, legacy_resize=args.legacy_resize)
+                except Exception as e:
+                    print(f"[WARNING] Could not load VRU for visualization: {e}")
+            elif args.vis_dataset == "vehicleid":
+                try:
+                    q_ds, g_ds = load_vehicleid(root_dir=args.data_root, legacy_resize=args.legacy_resize)
+                except Exception as e:
+                    print(f"[WARNING] Could not load VehicleID for visualization: {e}")
+            elif args.vis_dataset == "vrai":
+                try:
+                    q_ds, g_ds = load_vrai_val(root_dir=args.data_root, num_ids=1000, seed=42, legacy_resize=args.legacy_resize)
+                except Exception as e:
+                    print(f"[WARNING] Could not load VRAI for visualization: {e}")
+
+            # Fallback
+            if q_ds is None or g_ds is None:
+                try:
+                    q_ds, g_ds = load_veri776(root_dir=args.data_root, legacy_resize=args.legacy_resize)
                 except Exception:
-                    pass
+                    try:
+                        q_ds, g_ds = load_vru_split(root_dir=args.data_root, split_name="Small", seed=42, legacy_resize=args.legacy_resize)
+                    except Exception:
+                        pass
 
             if q_ds is not None and g_ds is not None:
                 vis_dir = out_dir / "visualizations"
@@ -376,7 +502,7 @@ def main():
                     query_dataset=q_ds,
                     gallery_dataset=g_ds,
                     output_dir=vis_dir,
-                    num_queries_to_visualize=5,
+                    num_queries_to_visualize=args.num_vis,
                     device=device,
                 )
             else:

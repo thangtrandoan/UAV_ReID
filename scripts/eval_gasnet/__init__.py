@@ -1,6 +1,12 @@
 """GASNet Stage 1 Evaluation Suite."""
 
-from .datasets import load_vehicleid, load_veri776, load_vru_split, resolve_dataset_path
+from .datasets import (
+    load_vehicleid,
+    load_veri776,
+    load_vrai_val,
+    load_vru_split,
+    resolve_dataset_path,
+)
 from .efficiency import (
     benchmark_latency_and_fps,
     count_parameters,
@@ -18,6 +24,7 @@ __all__ = [
     "load_veri776",
     "load_vehicleid",
     "load_vru_split",
+    "load_vrai_val",
     "load_gasnet_variant",
     "extract_dataset_features",
     "evaluate_rank_map_minp",

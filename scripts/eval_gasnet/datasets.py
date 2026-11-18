@@ -102,13 +102,32 @@ def resolve_dataset_path(dataset_name: str, custom_root: Optional[Union[str, Pat
     return (project_root / "data" / dataset_name).resolve()
 
 
-def get_default_eval_transform(img_size: Union[int, Tuple[int, int]] = 224) -> transforms.Compose:
-    """Standard evaluation image transform for GASNet."""
+def get_default_eval_transform(
+    img_size: Union[int, Tuple[int, int]] = 224,
+    legacy_resize: bool = False,
+) -> transforms.Compose:
+    """Evaluation image transform for GASNet.
+
+    Args:
+        img_size: Target image size (default 224).
+        legacy_resize:
+            - False (Default / Standard Vehicle Re-ID): Trực tiếp Resize((224, 224)).
+              Bảo toàn toàn bộ hộp bao xe, không bị cắt xén đèn, biển số, bánh xe.
+            - True (Legacy ImageNet Style): Resize((256, 256)) rồi CenterCrop((224, 224)).
+    """
     size = (img_size, img_size) if isinstance(img_size, int) else img_size
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    if legacy_resize:
+        return transforms.Compose([
+            transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.CenterCrop(size),
+            transforms.ToTensor(),
+            normalize,
+        ])
     return transforms.Compose([
         transforms.Resize(size, interpolation=transforms.InterpolationMode.BICUBIC),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        normalize,
     ])
 
 
@@ -129,6 +148,7 @@ def parse_veri_filename(fname: str) -> Tuple[int, int]:
 def load_veri776(
     root_dir: Optional[Union[str, Path]] = None,
     transform=None,
+    legacy_resize: bool = False,
 ) -> Tuple[SimpleReIDDataset, SimpleReIDDataset]:
     """Load VeRi-776 query and test (gallery) sets."""
     veri_dir = resolve_dataset_path("VeRi", root_dir)
@@ -167,7 +187,7 @@ def load_veri776(
         vid, cam = parse_veri_filename(name)
         gallery_samples.append(ReIDSample(img_path=img_path, vehicle_id=vid, camera_id=cam, image_name=name))
 
-    tfm = transform or get_default_eval_transform(224)
+    tfm = transform or get_default_eval_transform(224, legacy_resize=legacy_resize)
     return SimpleReIDDataset(query_samples, transform=tfm), SimpleReIDDataset(gallery_samples, transform=tfm)
 
 
@@ -177,6 +197,7 @@ def load_veri776(
 def load_vehicleid(
     root_dir: Optional[Union[str, Path]] = None,
     transform=None,
+    legacy_resize: bool = False,
 ) -> Tuple[SimpleReIDDataset, SimpleReIDDataset]:
     """Load VehicleID (Brno dataset) from img_database (1,232 vehicle pairs).
 
@@ -206,7 +227,7 @@ def load_vehicleid(
             elif cam == "B":
                 gallery_samples.append(ReIDSample(img_path=f, vehicle_id=pair_id, camera_id=1, image_name=f.name))
 
-    tfm = transform or get_default_eval_transform(224)
+    tfm = transform or get_default_eval_transform(224, legacy_resize=legacy_resize)
     return SimpleReIDDataset(query_samples, transform=tfm), SimpleReIDDataset(gallery_samples, transform=tfm)
 
 
@@ -218,6 +239,7 @@ def load_vru_split(
     split_name: str = "Small",
     seed: int = 42,
     transform=None,
+    legacy_resize: bool = False,
 ) -> Tuple[SimpleReIDDataset, SimpleReIDDataset]:
     """Load VRU dataset with Small (1200), Medium (2400), or Large/Big (8000) split.
 
@@ -269,7 +291,68 @@ def load_vru_split(
         query_samples.extend(group[:g_idx])
         query_samples.extend(group[g_idx + 1:])
 
-    tfm = transform or get_default_eval_transform(224)
+    tfm = transform or get_default_eval_transform(224, legacy_resize=legacy_resize)
+    return SimpleReIDDataset(query_samples, transform=tfm), SimpleReIDDataset(gallery_samples, transform=tfm)
+
+
+# --------------------------------------------------------------------------- #
+# VRAI (Aerial Vehicle Re-ID) Loader (Offline Validation Split)
+# --------------------------------------------------------------------------- #
+def load_vrai_val(
+    root_dir: Optional[Union[str, Path]] = None,
+    num_ids: int = 1000,
+    seed: int = 42,
+    transform=None,
+    legacy_resize: bool = False,
+) -> Tuple[SimpleReIDDataset, SimpleReIDDataset]:
+    """Load an offline validation split from VRAI (Vehicle Re-ID in Aerial Imagery).
+
+    Extracts `num_ids` vehicle identities with at least 2 images.
+    Puts 1 image per identity into the gallery, and remaining images into queries.
+    """
+    vrai_dir = resolve_dataset_path("VRAI", root_dir)
+    if not vrai_dir.exists():
+        raise FileNotFoundError(f"VRAI directory not found at: {vrai_dir}")
+
+    images_dir = vrai_dir / "images_train"
+    annotation_path = vrai_dir / "train_annotation.pkl"
+    if not annotation_path.exists():
+        raise FileNotFoundError(f"Annotation file not found: {annotation_path}")
+
+    import pickle
+    with annotation_path.open("rb") as f:
+        annotation = pickle.load(f)
+
+    im_names = annotation.get("train_im_names", [])
+    samples_by_id: Dict[int, List[ReIDSample]] = {}
+
+    for name in im_names:
+        parts = Path(name).stem.split("_")
+        if not parts[0].isdigit():
+            continue
+        vid = int(parts[0])
+        cam_id = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else -1
+        img_path = images_dir / name
+        if img_path.exists():
+            sample = ReIDSample(img_path=img_path, vehicle_id=vid, camera_id=cam_id, image_name=name)
+            samples_by_id.setdefault(vid, []).append(sample)
+
+    valid_ids = sorted([vid for vid, items in samples_by_id.items() if len(items) >= 2])
+    rng = random.Random(seed)
+    rng.shuffle(valid_ids)
+    selected_ids = sorted(valid_ids[:num_ids])
+
+    query_samples: List[ReIDSample] = []
+    gallery_samples: List[ReIDSample] = []
+
+    for vid in selected_ids:
+        group = samples_by_id[vid]
+        g_idx = rng.randrange(len(group))
+        gallery_samples.append(group[g_idx])
+        query_samples.extend(group[:g_idx])
+        query_samples.extend(group[g_idx + 1:])
+
+    tfm = transform or get_default_eval_transform(224, legacy_resize=legacy_resize)
     return SimpleReIDDataset(query_samples, transform=tfm), SimpleReIDDataset(gallery_samples, transform=tfm)
 
 
