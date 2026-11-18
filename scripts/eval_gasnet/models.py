@@ -60,6 +60,7 @@ def find_checkpoint(model_key: str, custom_weights_dir: Optional[Union[str, Path
 def load_gasnet_variant(
     variant: str,
     weights_path: Optional[Union[str, Path]] = None,
+    weights_dir: Optional[Union[str, Path]] = None,
     num_classes: int = 6302,
     device: Optional[torch.device] = None,
 ) -> Tuple[GASNet, Dict[str, str]]:
@@ -98,7 +99,7 @@ def load_gasnet_variant(
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
-    ckpt_file = Path(weights_path) if weights_path else find_checkpoint(ckpt_key)
+    ckpt_file = Path(weights_path) if weights_path else find_checkpoint(ckpt_key, custom_weights_dir=weights_dir)
     state_dict = None
     econvnext = False
     backbone = default_bb

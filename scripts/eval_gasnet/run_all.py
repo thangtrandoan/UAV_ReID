@@ -159,7 +159,7 @@ def run_experiment_1_backbone_comparison(
         print(f"[DATA] VeRi-776 loaded: {len(q_veri)} queries, {len(g_veri)} gallery images.")
         for bb_name, variant in models_to_test:
             print(f"[EVAL] Evaluating {bb_name} on VeRi-776...")
-            model, meta = load_gasnet_variant(variant, device=device)
+            model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
             metrics = evaluate_dataset_on_model(model, q_veri, g_veri, batch_size=batch_size, device=device)
             row = {
                 "Dataset": "VeRi-776",
@@ -182,7 +182,7 @@ def run_experiment_1_backbone_comparison(
         print(f"[DATA] VehicleID (Brno) loaded: {len(q_veh)} queries (Cam A), {len(g_veh)} gallery (Cam B).")
         for bb_name, variant in models_to_test:
             print(f"[EVAL] Evaluating {bb_name} on VehicleID...")
-            model, meta = load_gasnet_variant(variant, device=device)
+            model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
             metrics = evaluate_dataset_on_model(model, q_veh, g_veh, batch_size=batch_size, device=device)
             row = {
                 "Dataset": "VehicleID",
@@ -207,7 +207,7 @@ def run_experiment_1_backbone_comparison(
             print(f"[DATA] VRU {split_display} loaded: {len(q_vru)} queries, {len(g_vru)} gallery.")
             for bb_name, variant in models_to_test:
                 print(f"[EVAL] Evaluating {bb_name} on VRU {split_display}...")
-                model, meta = load_gasnet_variant(variant, device=device)
+                model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
                 metrics = evaluate_dataset_on_model(model, q_vru, g_vru, batch_size=batch_size, device=device)
                 row = {
                     "Dataset": "VRU",
@@ -230,7 +230,7 @@ def run_experiment_1_backbone_comparison(
         print(f"[DATA] VRAI (Val 1000 IDs) loaded: {len(q_vrai)} queries, {len(g_vrai)} gallery.")
         for bb_name, variant in models_to_test:
             print(f"[EVAL] Evaluating {bb_name} on VRAI...")
-            model, meta = load_gasnet_variant(variant, device=device)
+            model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
             metrics = evaluate_dataset_on_model(model, q_vrai, g_vrai, batch_size=batch_size, device=device)
             row = {
                 "Dataset": "VRAI",
@@ -338,7 +338,7 @@ def run_experiment_2_progressive_ablation(
 
     for name, variant in rows_config:
         print(f"\n[BENCHMARK] Profiling row: {name}...")
-        model, meta = load_gasnet_variant(variant, device=device)
+        model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
 
         # 1. Efficiency profile
         eff = run_full_efficiency_profile(model, img_size=224, device=device)
@@ -458,8 +458,8 @@ def main():
         print(f"Dataset: {args.vis_dataset.upper()} | Samples: {args.num_vis}")
         print("=" * 90)
         try:
-            model_bcgg, _ = load_gasnet_variant("convnext_bcgg_train", device=device)
-            model_rga, _ = load_gasnet_variant("convnext_rga", device=device)
+            model_bcgg, _ = load_gasnet_variant("convnext_bcgg_train", weights_dir=args.weights_dir, device=device)
+            model_rga, _ = load_gasnet_variant("convnext_rga", weights_dir=args.weights_dir, device=device)
 
             # Load queries for visualization according to args.vis_dataset
             q_ds, g_ds = None, None
