@@ -28,47 +28,30 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.eval_gasnet.datasets import SimpleReIDDataset, load_vrai_val, resolve_dataset_path
 from scripts.eval_gasnet.run_all import save_markdown_and_csv
-from scripts.finetune_gasnet.common import FINETUNE_VARIANTS, run_finetune_for_variant
+from scripts.finetune_gasnet.common import (
+    FINETUNE_VARIANTS,
+    finetune_gasnet_from_config,
+    prepare_vrai_train_and_val,
+    run_finetune_for_variant,
+)
+from uav_reid.config import apply_cli_overrides, load_yaml_config
 from uav_reid.datasets.vrai import VRAITrainSample, read_vrai_train_samples
-
-
-def prepare_vrai_train_and_val(
-    root_dir: Optional[Union[str, Path]] = None,
-    num_val_ids: int = 1000,
-    split_seed: int = 42,
-) -> Tuple[List[VRAITrainSample], SimpleReIDDataset, SimpleReIDDataset]:
-    """Load VRAI train samples strictly excluding the `num_val_ids` validation identities."""
-    vrai_dir = resolve_dataset_path("VRAI", root_dir)
-    if not vrai_dir.exists():
-        raise FileNotFoundError(f"VRAI directory not found at: {vrai_dir}")
-
-    # 1. Load the exact 1,000-ID validation split used by eval_gasnet
-    val_q, val_g = load_vrai_val(root_dir=root_dir, num_ids=num_val_ids, seed=split_seed)
-    val_id_set = {s.vehicle_id for s in val_q.samples} | {s.vehicle_id for s in val_g.samples}
-
-    # 2. Load all annotated VRAI samples and filter out all validation IDs
-    all_samples = read_vrai_train_samples(vrai_dir)
-    train_samples = [
-        s for s in all_samples if (s.vehicle_id not in val_id_set) and s.img_path.is_file()
-    ]
-    train_id_set = {s.vehicle_id for s in train_samples}
-
-    # Strict verification of zero identity leakage
-    overlap = train_id_set & val_id_set
-    if overlap:
-        raise RuntimeError(f"Data leakage detected: {len(overlap)} overlapping vehicle IDs!")
-
-    print(
-        f"[OK] VRAI Disjoint Split Verified (seed={split_seed}): "
-        f"Train={len(train_id_set)} IDs ({len(train_samples)} imgs) | "
-        f"Val={len(val_id_set)} IDs ({len(val_q)} queries, {len(val_g)} gallery) | "
-        f"Overlap=0 IDs"
-    )
-    return train_samples, val_q, val_g
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Standalone Finetuning for GASNet on VRAI")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Optional YAML config file (e.g. configs/gasnet_finetune.yaml). If provided, uses config-driven mode.",
+    )
+    parser.add_argument(
+        "--set",
+        nargs="*",
+        default=None,
+        help="Override YAML config values via section.key=value",
+    )
     parser.add_argument(
         "--variant",
         type=str,
@@ -119,6 +102,13 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--device", type=str, default=None, help="Device ('cuda' or 'cpu')")
     args = parser.parse_args()
+
+    if args.config:
+        cfg = load_yaml_config(args.config)
+        cfg.setdefault("train", {})["dataset"] = "vrai"
+        apply_cli_overrides(cfg, args.set)
+        finetune_gasnet_from_config(cfg)
+        return
 
     device = (
         torch.device(args.device)

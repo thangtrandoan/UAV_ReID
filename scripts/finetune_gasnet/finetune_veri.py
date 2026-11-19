@@ -29,7 +29,13 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.eval_gasnet.datasets import load_veri776, parse_veri_filename, resolve_dataset_path
 from scripts.eval_gasnet.run_all import save_markdown_and_csv
-from scripts.finetune_gasnet.common import FINETUNE_VARIANTS, run_finetune_for_variant
+from scripts.finetune_gasnet.common import (
+    FINETUNE_VARIANTS,
+    finetune_gasnet_from_config,
+    load_veri_train_samples,
+    run_finetune_for_variant,
+)
+from uav_reid.config import apply_cli_overrides, load_yaml_config
 from uav_reid.datasets.vrai import VRAITrainSample
 
 _XML_ITEM_RE = re.compile(
@@ -102,6 +108,18 @@ def load_veri_train_samples(root_dir: Optional[Union[str, Path]] = None) -> List
 def main() -> None:
     parser = argparse.ArgumentParser(description="Standalone Finetuning for GASNet on VeRi-776")
     parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Optional YAML config file (e.g. configs/gasnet_finetune.yaml). If provided, uses config-driven mode.",
+    )
+    parser.add_argument(
+        "--set",
+        nargs="*",
+        default=None,
+        help="Override YAML config values via section.key=value",
+    )
+    parser.add_argument(
         "--variant",
         type=str,
         choices=["resnet_rga", "convnext_rga", "convnext_bcgg", "all"],
@@ -149,6 +167,13 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--device", type=str, default=None, help="Device ('cuda' or 'cpu')")
     args = parser.parse_args()
+
+    if args.config:
+        cfg = load_yaml_config(args.config)
+        cfg.setdefault("train", {})["dataset"] = "veri"
+        apply_cli_overrides(cfg, args.set)
+        finetune_gasnet_from_config(cfg)
+        return
 
     device = (
         torch.device(args.device)

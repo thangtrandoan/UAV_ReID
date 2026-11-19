@@ -1,124 +1,135 @@
-# Hướng Dẫn Finetune GASNet Trên VeRi-776 và VRAI
+# Hướng Dẫn Finetune GASNet Bằng File Cấu Hình YAML (`configs/gasnet_finetune.yaml`)
 
-Bộ công cụ `scripts/finetune_gasnet/` cung cấp 2 script độc lập để finetune nhẹ 3 mô hình GASNet (`resnet_rga`, `convnext_rga`, `convnext_bcgg`) từ các checkpoint gốc trong `weights/` sang **VeRi-776** và **VRAI**, đảm bảo:
-1. **Không làm hỏng đặc trưng đã học (Anti-Catastrophic Forgetting):**
-   * **Giai đoạn 1 (`--freeze-epochs 2`):** Đóng băng toàn bộ Backbone, Gate (`RGA`/`BCGG`), `OSBlockFS` và `BNNeck` (giữ nguyên thống kê BatchNorm ở chế độ `eval`), chỉ mở khóa 2 lớp phân loại mới (`classifier_global`, `classifier_fs`) để làm nóng (warmup) trọng số phân lớp theo số ID mới.
-   * **Giai đoạn 2 (Full Finetune với Discriminative LR):** Mở khóa toàn mạng với 3 mức Learning Rate phân tầng:
-     * `Backbone`: rất nhỏ (`1.5e-5` cho DINO-ConvNeXt, `3.5e-5` cho ResNet50-IBN)
-     * `Gate + OSBlockFS + BNNeck`: trung bình (`1.0e-4`)
-     * `Classifier Head`: cao (`3.5e-4`)
-2. **Đánh giá Epoch 0 (Zero-shot Baseline) trước khi train:**
-   * Tự động đo `mAP, Rank-1, Rank-5, Rank-10, mINP` ngay tại Epoch 0 và chỉ ghi đè file `.best.pth` khi `mAP` vượt qua kỷ lục trước đó.
-3. **Chống rò rỉ dữ liệu tuyệt đối trên VRAI:**
-   * Tự động tách đúng 1.000 ID của tập Validation (`load_vrai_val(seed=42)`) ra khỏi tập `images_train`, chỉ finetune trên **5.302 ID còn lại** và kiểm tra `Overlap = 0 IDs` trước khi chạy.
+Hệ thống finetune sử dụng chung cấu trúc file cấu hình YAML giống hệt lúc train ([configs/gasnet_finetune.yaml](file:///home/nvidia/thang/UAV_ReID/configs/gasnet_finetune.yaml)). Bạn chỉ cần sửa trực tiếp trong file YAML (hoặc ghi đè nhanh qua `--set` trên dòng lệnh) các trường:
+* `paths.data_root`: Thư mục chứa dữ liệu (`data`)
+* `paths.weight_path`: Đường dẫn file weight gốc nạp vào để finetune (`weights/gasnet_convnext_bcgg.best.pth`, `weights/gasnet_convnext_rga.best.pth`, `weights/gasnet_resnet_rga.best.pth`)
+* `paths.save_path`: Đường dẫn lưu weight sau khi finetune (ví dụ `weights/veri/gasnet_convnext_bcgg.best.pth`)
+* `model.backbone`: `dinov3_convnext` | `resnet50_ibn` | `resnet50` | `swin_t`
+* `model.gate`: `bcgg` | `rga`
+* `model.use_gem`: `true` (GeMPool p=3.0) | `false` (AvgPool cho Bảng 5.4)
+* `train.dataset`: `veri` | `vrai` | `vru`
 
 ---
 
-## 1. Cấu trúc thư mục
+## 1. Cấu trúc File Cấu Hình `configs/gasnet_finetune.yaml`
 
-```text
-scripts/finetune_gasnet/
-├── __init__.py
-├── common.py          # Engine finetune 2 giai đoạn, nạp weight khác số lớp, tối ưu hóa phân tầng LR
-├── finetune_veri.py   # Script finetune độc lập trên VeRi-776 (576 train IDs -> 200 test IDs)
-├── finetune_vrai.py   # Script finetune độc lập trên VRAI (5302 train IDs -> 1000 val IDs)
-└── README.md          # Tài liệu hướng dẫn này
-```
+```yaml
+paths:
+  data_root: data
+  weight_path: weights/gasnet_convnext_bcgg.best.pth
+  save_path: weights/veri/gasnet_convnext_bcgg.best.pth
+  log_path: outputs/gasnet_finetune/log.txt
 
----
+model:
+  backbone: dinov3_convnext                  # resnet50_ibn | resnet50 | swin_t | dinov3_convnext
+  econvnext: true
+  pretrained: false
+  gate: bcgg                                 # bcgg | rga
+  use_gem: true                              # true (GeM) | false (AvgPool)
+  gem_p: 3.0
 
-## 2. Chạy Finetune trên VeRi-776
-
-### A. Finetune tự động cả 3 mô hình (Khuyến nghị để so sánh công bằng)
-```bash
-python3 -m scripts.finetune_gasnet.finetune_veri --variant all --epochs 15 --batch-size 64
-```
-Sau khi chạy xong, thư mục `weights/veri/` sẽ có đủ 3 checkpoint tốt nhất:
-* `weights/veri/gasnet_resnet_rga.best.pth`
-* `weights/veri/gasnet_convnext_rga.best.pth`
-* `weights/veri/gasnet_convnext_bcgg.best.pth`
-* Bảng tổng kết so sánh trước/sau finetune: `weights/veri/finetune_veri_summary.md` (và `.csv`).
-
-### B. Hoặc finetune riêng từng mô hình
-```bash
-# 1. GASNet gốc (ResNet50-IBN + RGA)
-python3 -m scripts.finetune_gasnet.finetune_veri --variant resnet_rga --epochs 15
-
-# 2. GASNet + DINO-ConvNeXt + RGA
-python3 -m scripts.finetune_gasnet.finetune_veri --variant convnext_rga --epochs 15
-
-# 3. GASNet + DINO-ConvNeXt + BCGG
-python3 -m scripts.finetune_gasnet.finetune_veri --variant convnext_bcgg --epochs 15
+train:
+  dataset: veri                              # veri | vrai | vru
+  epochs: 15
+  freeze_epochs: 2                           # Đóng băng Backbone/Gate/BNNeck 2 epoch đầu để warmup Classifier mới
+  batch_size: 64
+  pk_k: 4
+  backbone_lr: 1.5e-5                        # LR nhỏ cho Backbone
+  gate_lr: 1.0e-4                            # LR vừa cho Gate + OSBlockFS + BNNeck
+  head_lr: 3.5e-4                            # LR lớn hơn cho Classifier mới
 ```
 
 ---
 
-## 3. Chạy Finetune trên VRAI (5.302 Train IDs → 1.000 Val IDs)
+## 2. Cách Chạy Finetune Theo File Config (Giống Hệt Lúc Train)
 
-### A. Finetune tự động cả 3 mô hình
+### Cách A — Sửa trực tiếp trong `configs/gasnet_finetune.yaml` rồi chạy:
+Bạn có thể gọi qua `scripts.finetune_gasnet` hoặc dùng chính `scripts/train_gasnet.py`:
 ```bash
-python3 -m scripts.finetune_gasnet.finetune_vrai --variant all --epochs 12 --batch-size 64
+python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml
 ```
-Sau khi chạy xong, thư mục `weights/vrai/` sẽ có:
-* `weights/vrai/gasnet_resnet_rga.best.pth`
-* `weights/vrai/gasnet_convnext_rga.best.pth`
-* `weights/vrai/gasnet_convnext_bcgg.best.pth`
-* Bảng tổng kết: `weights/vrai/finetune_vrai_summary.md` (và `.csv`).
-
-### B. Hoặc finetune riêng từng mô hình
-```bash
-python3 -m scripts.finetune_gasnet.finetune_vrai --variant resnet_rga --epochs 12
-python3 -m scripts.finetune_gasnet.finetune_vrai --variant convnext_rga --epochs 12
-python3 -m scripts.finetune_gasnet.finetune_vrai --variant convnext_bcgg --epochs 12
-```
+*(Hoặc: `python3 scripts/train_gasnet.py --config configs/gasnet_finetune.yaml` đều chạy chung engine này).*
 
 ---
 
-## 4. Chạy bộ Đánh giá & Trực quan hóa (`eval_gasnet`) với Weight đã Finetune
+### Cách B — Giữ nguyên 1 file config và đổi nhanh bằng `--set` cho từng Model & Dataset:
 
-Bộ đánh giá `scripts.eval_gasnet.run_all` đã hỗ trợ cờ `--weights-dir` để trỏ thẳng vào thư mục chứa weight vừa finetune mà không làm mất weight gốc trong `weights/`:
+#### 1. Finetune trên **VeRi-776** (`train.dataset=veri`):
+* **Model 1: DINO-ConvNeXt + BCGG (GeM):**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=veri \
+            paths.weight_path=weights/gasnet_convnext_bcgg.best.pth \
+            paths.save_path=weights/veri/gasnet_convnext_bcgg.best.pth \
+            model.backbone=dinov3_convnext model.gate=bcgg model.use_gem=true
+  ```
+* **Model 2: DINO-ConvNeXt + RGA:**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=veri \
+            paths.weight_path=weights/gasnet_convnext_rga.best.pth \
+            paths.save_path=weights/veri/gasnet_convnext_rga.best.pth \
+            model.backbone=dinov3_convnext model.gate=rga model.use_gem=true
+  ```
+* **Model 3: ResNet50-IBN + RGA:**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=veri \
+            paths.weight_path=weights/gasnet_resnet_rga.best.pth \
+            paths.save_path=weights/veri/gasnet_resnet_rga.best.pth \
+            model.backbone=resnet50_ibn model.gate=rga model.use_gem=true \
+            train.backbone_lr=3.5e-5
+  ```
+* **Model 4 (Cho Bảng 5.4): DINO-ConvNeXt + BCGG dùng AvgPool (`model.use_gem=false`):**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=veri \
+            paths.weight_path=weights/gasnet_convnext_bcgg.best.pth \
+            paths.save_path=weights/veri/gasnet_convnext_bcgg_avgpool.best.pth \
+            model.backbone=dinov3_convnext model.gate=bcgg model.use_gem=false
+  ```
 
-### Đánh giá & Sinh ảnh Trực quan hóa với bộ weight đã finetune trên VeRi-776:
+---
+
+#### 2. Finetune trên **VRAI** (`train.dataset=vrai` — Tự động tách 5.302 Train IDs / 1.000 Val IDs không trùng lặp):
+* **Model 1: DINO-ConvNeXt + BCGG:**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=vrai train.epochs=12 \
+            paths.weight_path=weights/gasnet_convnext_bcgg.best.pth \
+            paths.save_path=weights/vrai/gasnet_convnext_bcgg.best.pth \
+            model.backbone=dinov3_convnext model.gate=bcgg
+  ```
+* **Model 2: DINO-ConvNeXt + RGA:**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=vrai train.epochs=12 \
+            paths.weight_path=weights/gasnet_convnext_rga.best.pth \
+            paths.save_path=weights/vrai/gasnet_convnext_rga.best.pth \
+            model.backbone=dinov3_convnext model.gate=rga
+  ```
+* **Model 3: ResNet50-IBN + RGA:**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=vrai train.epochs=12 \
+            paths.weight_path=weights/gasnet_resnet_rga.best.pth \
+            paths.save_path=weights/vrai/gasnet_resnet_rga.best.pth \
+            model.backbone=resnet50_ibn model.gate=rga \
+            train.backbone_lr=3.5e-5
+  ```
+
+---
+
+## 3. Đánh Giá & Sinh Ảnh Trực Quan Với Bộ Weight Vừa Finetune
+
+Sau khi finetune xong vào `weights/veri/` hoặc `weights/vrai/`, bạn chạy lệnh đánh giá:
+
 ```bash
-# Chạy Bảng 5.1, 5.2 và Visualize trên VeRi-776 dùng weight vừa finetune
+# Đánh giá trên VeRi-776 với weight đã finetune
 python3 -m scripts.eval_gasnet.run_all \
     --weights-dir weights/veri \
     --output-dir outputs/gasnet_report_veri \
     --ablation-dataset veri \
     --vis-dataset veri \
     --all
-```
-
-### Đánh giá & Sinh ảnh Trực quan hóa với bộ weight đã finetune trên VRAI:
-```bash
-# Chạy Bảng 5.1, 5.2 và Visualize trên VRAI dùng weight vừa finetune
-python3 -m scripts.eval_gasnet.run_all \
-    --weights-dir weights/vrai \
-    --output-dir outputs/gasnet_report_vrai \
-    --ablation-dataset vrai \
-    --vis-dataset vrai \
-    --all
-```
-
----
-
-## 5. Các tham số tùy chỉnh thường dùng
-
-| Tham số | Mặc định | Ý nghĩa |
-| :--- | :---: | :--- |
-| `--variant` | `all` | Chọn `resnet_rga`, `convnext_rga`, `convnext_bcgg`, hoặc `all` (chạy cả 3). |
-| `--epochs` | `15` (VeRi) / `12` (VRAI) | Tổng số epoch finetune. |
-| `--freeze-epochs` | `2` | Số epoch đầu đóng băng Backbone/Gate/BNNeck để làm nóng Classifier mới. |
-| `--batch-size` | `64` | Kích thước batch PK (phải chia hết cho `--pk-k`, mặc định `64 = 16 IDs × 4 ảnh`). |
-| `--backbone-lr` | Tự động (`1.5e-5` / `3.5e-5`) | Learning rate của tầng Backbone. |
-| `--gate-lr` | `1.0e-4` | Learning rate của các khối Gate (`RGA`/`BCGG`), `OSBlockFS` và `BNNeck`. |
-| `--head-lr` | `3.5e-4` | Learning rate của 2 lớp phân loại `classifier_global` và `classifier_fs`. |
-| `--eval-every` | `3` | Chu kỳ đánh giá trên tập Test/Val sau mỗi N epoch. |
-| `--strong-aug` | `False` | Bật thêm ColorJitter + RandomResizedCrop nếu muốn tăng cường dữ liệu mạnh hơn. |
-| `--no-gem` | `False` | Dùng `AdaptiveAvgPool2d` thay cho `GeMPool (p=3.0)` (lưu thành `*_avgpool.best.pth` để không ghi đè bản GeM). |
-
-Ví dụ finetune thêm bản **AvgPool** cho Bảng 5.4:
-```bash
-python3 -m scripts.finetune_gasnet.finetune_veri --variant convnext_bcgg --no-gem --epochs 15
-python3 -m scripts.finetune_gasnet.finetune_vrai --variant convnext_bcgg --no-gem --epochs 12
 ```

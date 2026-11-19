@@ -48,7 +48,16 @@ def main() -> None:
     if args.eval_only:
         evaluate_gasnet_checkpoint(cfg, checkpoint_path=args.checkpoint)
     else:
-        train_gasnet(cfg)
+        pc = cfg.get("paths", {})
+        tc = cfg.get("train", {})
+        has_weight_path = bool(pc.get("weight_path") or pc.get("pretrained_path") or pc.get("checkpoint"))
+        dataset_name = str(tc.get("dataset", "vru")).strip().lower()
+        if has_weight_path or dataset_name in ("veri", "veri776", "veri-776"):
+            from scripts.finetune_gasnet.common import finetune_gasnet_from_config
+
+            finetune_gasnet_from_config(cfg)
+        else:
+            train_gasnet(cfg)
 
 
 if __name__ == "__main__":
