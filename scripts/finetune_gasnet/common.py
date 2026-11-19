@@ -342,6 +342,7 @@ def build_and_load_gasnet_from_config(
             )
 
         model.load_state_dict(filtered, strict=False)
+        model._classifiers_loaded = len(reinit_classifiers) == 0
         print(
             f"[OK] Loaded {len(filtered)}/{len(model_sd)} tensors from {weight_path} "
             f"| backbone={backbone} (econvnext={econvnext}) | gate={gate} | use_gem={use_gem} | "
@@ -596,6 +597,12 @@ def finetune_gasnet_from_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
         num_classes=num_classes,
         device=device,
     )
+    if getattr(model, "_classifiers_loaded", False) and freeze_epochs > 0:
+        print(
+            f"[INFO] Classifier heads matched num_classes={num_classes} (continuing finetune) -> "
+            f"auto-skipping HEAD-WARMUP (freeze_epochs: {freeze_epochs} -> 0)"
+        )
+        freeze_epochs = 0
 
     if attention_reg_weight > 0:
         model.set_attention_capture(True)
