@@ -1,0 +1,74 @@
+# ============================================================================
+# Stage 1: GASNet Finetuning Configuration (VeRi-776 / VRAI / VRU)
+# Cách dùng:
+#   python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml
+# Hoặc ghi đè nhanh trên dòng lệnh:
+#   python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+#       --set train.dataset=vrai paths.save_path=weights/vrai/gasnet_convnext_bcgg.best.pth
+# ============================================================================
+
+paths:
+  data_root: /content                                       # Thư mục chứa VeRi, VRAI, VRU
+  weight_path: /content/gasnet_resnet_rga.best.pth     # File weight gốc nạp vào để finetune
+  save_path: /content/drive/MyDrive/kltn/weights/veri/gasnet_resnet_rga.best.pth  # Đường dẫn lưu weight tốt nhất sau finetune
+  log_path: /content/drive/MyDrive/kltn/outputs/gasnet_resnet_rga_veri/log.txt              # File ghi log quá trình finetune
+
+model:
+  backbone: resnet50_ibn                 # resnet50_ibn | resnet50 | swin_t | dinov3_convnext
+  econvnext: false                            # E-ConvNeXt (Stage 0-1 CSP + ESE)
+  pretrained: false                          # Không tải lại ImageNet vì đã nạp từ paths.weight_path
+  gate: rga                                 # bcgg (Bottleneck Context Group Gate) | rga
+  gate_hidden: 16
+  gate_groups: 4
+  gate_kernel: 7
+  gate_channel_kernel: 5
+  gate_inject_value: false
+  use_gem: true                              # true: GeMPool (p=3.0) | false: AvgPool (cho Bảng 5.4)
+  gem_p: 3.0
+  use_part_branch: false
+  num_parts: 4
+  use_attention_local: false
+  num_attention_heads: 4
+
+train:
+  dataset: veri                              # veri | vrai | vru
+  seed: 42
+  epochs: 500                                 # Số epoch finetune (12 - 20 epoch)
+  freeze_epochs: 15                           # Số epoch đầu đóng băng Backbone/Gate/BNNeck để làm nóng Classifier mới
+  batch_size: 256                             # Phải chia hết cho pk_k (64 = 16 IDs x 4 ảnh)
+  base_batch_size: 64
+  base_lr: 3.5e-5                            # LR cơ sở (dùng cho backbone ResNet/Swin nếu không chỉ định backbone_lr)
+  backbone_lr: 3.5e-5                        # Discriminative LR nhỏ cho tầng Backbone
+  gate_lr: 1.0e-4                            # Discriminative LR trung bình cho Gate (RGA/BCGG), OSBlockFS, BNNeck
+  head_lr: 3.5e-4                            # Discriminative LR cho 2 lớp Classifier mới
+  convnext_weight_decay: 0.02
+  convnext_warmup_epochs: 1
+  grad_accum: 1
+  pk_k: 4
+  strong_aug: true
+  triplet_weight: 0.5
+  triplet_margin: 0.3
+  label_smoothing: 0.1
+  attention_reg_weight: 0.0
+  attn_diversity_weight: 0.0
+  camera_balanced_sampler: true
+  attribute_hard_negative_sampler: true
+  num_workers: 4
+  prefetch_factor: 2
+  pin_memory: true
+  persistent_workers: true
+  channels_last: true
+  use_amp: true
+  amp_dtype: bf16                            # auto | bf16 | fp16
+  use_compile: true
+  log_every: 20
+
+eval:
+  run_eval: true
+  eval_epoch_0: true                         # Chấm điểm Zero-Shot (Epoch 0) trước khi finetune để đối chiếu
+  eval_every: 3                              # Chu kỳ đánh giá trên tập Test/Val sau mỗi N epoch
+  eval_batch_size: 64
+  save_best: true
+  vrai_val_ids: 1000                         # Khi dataset=vrai: tách 1000 ID làm Val, 5302 ID còn lại làm Train (0 trùng lặp)
+  split_seed: 42
+  legacy_resize: false
