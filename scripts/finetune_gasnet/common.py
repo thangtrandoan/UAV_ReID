@@ -307,7 +307,7 @@ def build_and_load_gasnet_from_config(
 
     model = GASNet(
         num_classes=num_classes,
-        use_pretrained=bool(mc.get("pretrained", False)) if state_dict is not None else bool(mc.get("pretrained", True)),
+        use_pretrained=(False if state_dict is not None else bool(mc.get("pretrained", True))),
         use_part_branch=use_part_branch,
         num_parts=num_parts,
         use_gem=use_gem,
@@ -385,8 +385,16 @@ def load_pretrained_gasnet_for_finetune(
 
 
 def set_warmup_freeze_state(model: nn.Module, freeze_feature_extractor: bool) -> None:
-    """Freeze or unfreeze feature extractor (backbone + gate + fs + bnneck) for head warmup."""
+    """Freeze or unfreeze feature extractor (backbone + gate + fs + bnneck) for head warmup.
+
+    Keeps top-level `model.training = True` and `base_model.training = True` so
+    `GASNet.forward()` always takes the `if self.training:` branch and returns `(feats, logits)`.
+    During head warmup, only BatchNorm and Dropout submodules are set to `.eval()`.
+    """
+    model.train()
     base_model = getattr(model, "_orig_mod", model)
+    base_model.train()
+
     for name, param in base_model.named_parameters():
         if name.startswith("classifier_"):
             param.requires_grad = True
@@ -394,11 +402,9 @@ def set_warmup_freeze_state(model: nn.Module, freeze_feature_extractor: bool) ->
             param.requires_grad = not freeze_feature_extractor
 
     if freeze_feature_extractor:
-        base_model.eval()
-        base_model.classifier_global.train()
-        base_model.classifier_fs.train()
-    else:
-        base_model.train()
+        for module in base_model.modules():
+            if isinstance(module, (nn.modules.batchnorm._BatchNorm, nn.Dropout)):
+                module.eval()
 
 
 def build_finetune_optimizer_and_scheduler(
