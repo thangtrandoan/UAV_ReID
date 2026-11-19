@@ -11,7 +11,7 @@ paths:
   data_root: /content                                       # Thư mục chứa VeRi, VRAI, VRU
   weight_path: /content/gasnet_convnext_bcgg.best.pth     # File weight gốc nạp vào để finetune
   save_path: /content/drive/MyDrive/kltn/weights/veri/gasnet_convnext_bcgg.best.pth  # Đường dẫn lưu weight tốt nhất sau finetune
-  log_path: /content/drive/MyDrive/kltn/outputs/gasnet_finetune/log.txt              # File ghi log quá trình finetune
+  log_path: /content/drive/MyDrive/kltn/outputs/gasnet_convnext_bcgg/log.txt              # File ghi log quá trình finetune
 
 model:
   backbone: dinov3_convnext                  # resnet50_ibn | resnet50 | swin_t | dinov3_convnext
