@@ -32,7 +32,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None  # type: ignore
 import torch
 from torch.utils.data import DataLoader
 
@@ -44,6 +47,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from scripts.eval_gasnet.datasets import (
     create_eval_dataloader,
     load_vehicleid,
+    load_vehicleid_split,
     load_veri776,
     load_vrai_val,
     load_vru_split,
@@ -107,20 +111,27 @@ def save_markdown_and_csv(
     title: str,
 ) -> None:
     """Save a list of dictionaries as both Markdown table and CSV file."""
+    if not data:
+        return
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_file = output_dir / f"{file_prefix}.csv"
     md_file = output_dir / f"{file_prefix}.md"
 
-    df = pd.DataFrame(data)
-    df.to_csv(csv_file, index=False)
+    headers = list(data[0].keys())
+    if pd is not None:
+        df = pd.DataFrame(data)
+        df.to_csv(csv_file, index=False)
+    else:
+        with csv_file.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(data)
 
     md_content = f"# {title}\n\n"
-    # Pure-Python Markdown table generator (no tabulate dependency required)
-    headers = list(df.columns)
     md_content += "| " + " | ".join(headers) + " |\n"
     md_content += "| " + " | ".join([":---:" if ("Rank" in h or "mAP" in h or "GFLOPs" in h or "FPS" in h or "ms" in h or "MB" in h or "#Params" in h) else ":---" for h in headers]) + " |\n"
-    for _, row in df.iterrows():
-        md_content += "| " + " | ".join(str(val) for val in row.values) + " |\n"
+    for row in data:
+        md_content += "| " + " | ".join(str(row.get(h, "")) for h in headers) + " |\n"
     md_content += "\n"
     md_file.write_text(md_content, encoding="utf-8")
 
@@ -176,28 +187,35 @@ def run_experiment_1_backbone_comparison(
     except Exception as exc:
         print(f"[WARNING] Skipping VeRi-776 evaluation: {exc}")
 
-    # 2. VehicleID (Đánh giá riêng biệt từ data/VehicleID/)
-    try:
-        q_veh, g_veh = load_vehicleid(root_dir=data_root, legacy_resize=legacy_resize)
-        print(f"[DATA] VehicleID (Brno) loaded: {len(q_veh)} queries (Cam A), {len(g_veh)} gallery (Cam B).")
-        for bb_name, variant in models_to_test:
-            print(f"[EVAL] Evaluating {bb_name} on VehicleID...")
-            model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
-            metrics = evaluate_dataset_on_model(model, q_veh, g_veh, batch_size=batch_size, device=device)
-            row = {
-                "Dataset": "VehicleID",
-                "Split": "Pairs (1232 A↔B)",
-                "Backbone": bb_name,
-                "mAP (%)": f"{metrics['mAP']:.2f}",
-                "Rank-1 (%)": f"{metrics['Rank-1']:.2f}",
-                "Rank-5 (%)": f"{metrics['Rank-5']:.2f}",
-                "Rank-10 (%)": f"{metrics['Rank-10']:.2f}",
-                "mINP (%)": f"{metrics['mINP']:.2f}",
-            }
-            table_data.append(row)
-            print(f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | Rank-5: {row['Rank-5 (%)']} | Rank-10: {row['Rank-10 (%)']} | mINP: {row['mINP (%)']}")
-    except Exception as exc:
-        print(f"[WARNING] Skipping VehicleID evaluation: {exc}")
+    # 2. PKU-VehicleID (Đánh giá riêng biệt từ data/VehicleID_V1.0/ theo 3 split Small, Medium, Large)
+    vehicleid_splits = [("Small (800)", "Small"), ("Medium (1600)", "Medium"), ("Large (2400)", "Large")]
+    for split_display, split_key in vehicleid_splits:
+        try:
+            q_veh, g_veh = load_vehicleid_split(
+                root_dir=data_root, split_name=split_key, seed=42, legacy_resize=legacy_resize
+            )
+            print(f"[DATA] VehicleID {split_display} loaded: {len(q_veh)} queries, {len(g_veh)} gallery.")
+            for bb_name, variant in models_to_test:
+                print(f"[EVAL] Evaluating {bb_name} on VehicleID {split_display}...")
+                model, meta = load_gasnet_variant(variant, weights_dir=weights_dir, device=device)
+                metrics = evaluate_dataset_on_model(model, q_veh, g_veh, batch_size=batch_size, device=device)
+                row = {
+                    "Dataset": "VehicleID",
+                    "Split": split_display,
+                    "Backbone": bb_name,
+                    "mAP (%)": f"{metrics['mAP']:.2f}",
+                    "Rank-1 (%)": f"{metrics['Rank-1']:.2f}",
+                    "Rank-5 (%)": f"{metrics['Rank-5']:.2f}",
+                    "Rank-10 (%)": f"{metrics['Rank-10']:.2f}",
+                    "mINP (%)": f"{metrics['mINP']:.2f}",
+                }
+                table_data.append(row)
+                print(
+                    f" -> mAP: {row['mAP (%)']} | Rank-1: {row['Rank-1 (%)']} | "
+                    f"Rank-5: {row['Rank-5 (%)']} | Rank-10: {row['Rank-10 (%)']} | mINP: {row['mINP (%)']}"
+                )
+        except Exception as exc:
+            print(f"[WARNING] Skipping VehicleID {split_display} evaluation: {exc}")
 
     # 3. VRU (Đánh giá riêng biệt từ data/VRU/ theo 3 split Small, Medium, Large)
     vru_splits = [("Small (1200)", "Small"), ("Medium (2400)", "Medium"), ("Large (8000)", "Big")]
@@ -302,8 +320,10 @@ def run_experiment_2_progressive_ablation(
             print(f"[WARNING] Could not load VRU: {e}")
     elif ablation_dataset.lower() == "vehicleid":
         try:
-            eval_dataset_q, eval_dataset_g = load_vehicleid(root_dir=data_root, legacy_resize=legacy_resize)
-            dataset_title = "VehicleID"
+            eval_dataset_q, eval_dataset_g = load_vehicleid_split(
+                root_dir=data_root, split_name="Medium", seed=42, legacy_resize=legacy_resize
+            )
+            dataset_title = "VehicleID (Medium)"
             print(f"[DATA] Selected {dataset_title} for Table 5.2 Ablation accuracy.")
         except Exception as e:
             print(f"[WARNING] Could not load VehicleID: {e}")

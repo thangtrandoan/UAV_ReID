@@ -34,7 +34,15 @@ def batch_hard_triplet_loss(
     if colors is not None and vehicle_types is not None:
         colors = colors.to(feat.device).view(-1, 1)
         vehicle_types = vehicle_types.to(feat.device).view(-1, 1)
-        same_attr_neg = mask_neg & colors.eq(colors.t()) & vehicle_types.eq(vehicle_types.t())
+        valid_c = (colors >= 0) & (colors.t() >= 0)
+        valid_t = (vehicle_types >= 0) & (vehicle_types.t() >= 0)
+        same_attr_neg = (
+            mask_neg
+            & valid_c
+            & valid_t
+            & colors.eq(colors.t())
+            & vehicle_types.eq(vehicle_types.t())
+        )
         has_same_attr_neg = same_attr_neg.sum(dim=1) > 0
         mask_neg = torch.where(has_same_attr_neg.view(-1, 1), same_attr_neg, mask_neg)
 

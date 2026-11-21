@@ -153,7 +153,10 @@ class PKBatchSampler(torch.utils.data.Sampler[List[int]]):
             label_to_attr = {}
             for idx, label in enumerate(labels):
                 if label in self.labels and label not in label_to_attr:
-                    label_to_attr[label] = (int(colors[idx]), int(vehicle_types[idx]))
+                    c_val = int(colors[idx])
+                    t_val = int(vehicle_types[idx])
+                    if c_val >= 0 and t_val >= 0:
+                        label_to_attr[label] = (c_val, t_val)
             for label, attr in label_to_attr.items():
                 self.attr_to_labels.setdefault(attr, []).append(label)
             self.attr_buckets = [
@@ -168,7 +171,12 @@ class PKBatchSampler(torch.utils.data.Sampler[List[int]]):
     def _sample_indices_for_label(self, label: int) -> List[int]:
         indices = self.label_to_indices[label]
         if not self.camera_balanced:
-            return random.sample(indices, self.k)
+            if len(indices) >= self.k:
+                return random.sample(indices, self.k)
+            selected = list(indices)
+            selected.extend(random.choices(indices, k=self.k - len(selected)))
+            random.shuffle(selected)
+            return selected
 
         by_camera: dict[str, List[int]] = {}
         for idx in indices:
@@ -189,6 +197,8 @@ class PKBatchSampler(torch.utils.data.Sampler[List[int]]):
             selected.extend(
                 random.sample(remaining, min(len(remaining), self.k - len(selected)))
             )
+        if len(selected) < self.k:
+            selected.extend(random.choices(indices, k=self.k - len(selected)))
         return selected[: self.k]
 
     def _make_batch_labels(self, remaining: set[int]) -> List[int]:

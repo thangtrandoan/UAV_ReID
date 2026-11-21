@@ -1,1 +1,1 @@
-"""Standalone Finetuning Suite for Stage 1 GASNet on VeRi-776 and VRAI."""
+"""Standalone Finetuning Suite for Stage 1 GASNet on VeRi-776, VRAI, VRU, and PKU-VehicleID."""

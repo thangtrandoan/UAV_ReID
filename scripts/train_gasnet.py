@@ -52,7 +52,15 @@ def main() -> None:
         tc = cfg.get("train", {})
         has_weight_path = bool(pc.get("weight_path") or pc.get("pretrained_path") or pc.get("checkpoint"))
         dataset_name = str(tc.get("dataset", "vru")).strip().lower()
-        if has_weight_path or dataset_name in ("veri", "veri776", "veri-776"):
+        if has_weight_path or dataset_name in (
+            "veri",
+            "veri776",
+            "veri-776",
+            "vehicleid",
+            "vehicleid_v1.0",
+            "pku_vehicleid",
+            "pku-vehicleid",
+        ):
             from scripts.finetune_gasnet.common import finetune_gasnet_from_config
 
             finetune_gasnet_from_config(cfg)

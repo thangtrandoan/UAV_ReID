@@ -2,10 +2,12 @@
 
 from .datasets import (
     load_vehicleid,
+    load_vehicleid_split,
     load_veri776,
     load_vrai_val,
     load_vru_split,
     resolve_dataset_path,
+    resolve_vehicleid_dir,
 )
 from .efficiency import (
     benchmark_latency_and_fps,
@@ -21,8 +23,10 @@ from .visualize import run_qualitative_evaluation
 
 __all__ = [
     "resolve_dataset_path",
+    "resolve_vehicleid_dir",
     "load_veri776",
     "load_vehicleid",
+    "load_vehicleid_split",
     "load_vru_split",
     "load_vrai_val",
     "load_gasnet_variant",

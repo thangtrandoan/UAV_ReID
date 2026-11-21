@@ -23,11 +23,13 @@ from torchvision import transforms
 
 from scripts.eval_gasnet.datasets import (
     SimpleReIDDataset,
+    load_vehicleid_split,
     load_veri776,
     load_vrai_val,
     load_vru_split,
     parse_veri_filename,
     resolve_dataset_path,
+    resolve_vehicleid_dir,
 )
 from scripts.eval_gasnet.models import find_checkpoint
 from scripts.eval_gasnet.run_all import evaluate_dataset_on_model
@@ -177,6 +179,119 @@ def prepare_vru_train_and_val(
         root_dir=root_dir, split_name="Small", seed=split_seed, legacy_resize=legacy_resize
     )
     return train_samples, val_q, val_g
+
+
+def load_vehicleid_train_samples(root_dir: Optional[Union[str, Path]] = None) -> List[VRAITrainSample]:
+    """Load PKU-VehicleID (V1.0) training samples (`train_list.txt`: 113,346 images, 13,164 IDs).
+
+    Also loads vehicle-level `color_attr.txt` (7 colors) and `model_attr.txt` (250 models)
+    when available so attribute hard-negative mining can be utilized.
+    """
+    veh_dir = resolve_vehicleid_dir(root_dir)
+    if not veh_dir.exists():
+        raise FileNotFoundError(f"[FAIL] PKU-VehicleID directory not found at: {veh_dir}")
+
+    img_dir = veh_dir / "image"
+    train_list_file = veh_dir / "train_test_split" / "train_list.txt"
+    if not img_dir.is_dir():
+        raise FileNotFoundError(f"[FAIL] VehicleID image directory not found at: {img_dir}")
+    if not train_list_file.is_file():
+        raise FileNotFoundError(f"[FAIL] VehicleID train_list.txt not found at: {train_list_file}")
+
+    attr_dir = veh_dir / "attribute"
+    color_map: Dict[int, int] = {}
+    model_map: Dict[int, int] = {}
+
+    color_file = attr_dir / "color_attr.txt"
+    if color_file.is_file():
+        with color_file.open("r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                    color_map[int(parts[0])] = int(parts[1])
+
+    model_file = attr_dir / "model_attr.txt"
+    if model_file.is_file():
+        with model_file.open("r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                    model_map[int(parts[0])] = int(parts[1])
+
+    samples: List[VRAITrainSample] = []
+    with train_list_file.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            img_id = parts[0]
+            vid = int(parts[1])
+            img_name = f"{img_id}.jpg" if not img_id.endswith(".jpg") else img_id
+            img_path = img_dir / img_name
+            if not img_path.is_file():
+                continue
+            samples.append(
+                VRAITrainSample(
+                    img_path=img_path,
+                    image_name=img_name,
+                    vehicle_id=vid,
+                    camera="",
+                    color=color_map.get(vid, -1),
+                    vehicle_type=model_map.get(vid, -1),
+                )
+            )
+    return samples
+
+
+def prepare_vehicleid_splits(
+    root_dir: Optional[Union[str, Path]] = None,
+    split_seed: int = 42,
+    legacy_resize: bool = False,
+) -> Tuple[
+    List[VRAITrainSample],
+    SimpleReIDDataset,
+    SimpleReIDDataset,
+    SimpleReIDDataset,
+    SimpleReIDDataset,
+    SimpleReIDDataset,
+    SimpleReIDDataset,
+]:
+    """Load PKU-VehicleID Train, Validation (Small 800 & Medium 1600), and Test (Large 2400) splits.
+
+    Protocol:
+    - Train on `train_list.txt` (13,164 IDs, 113,346 images).
+    - Validate during training on Small (800 IDs) and Medium (1,600 IDs).
+    - Select best checkpoint using Medium (1,600 IDs) mAP.
+    - Evaluate final held-out test performance on Large (2,400 IDs) only after training completes.
+    """
+    train_samples = load_vehicleid_train_samples(root_dir=root_dir)
+    val_small_q, val_small_g = load_vehicleid_split(
+        root_dir=root_dir, split_name="Small", seed=split_seed, legacy_resize=legacy_resize
+    )
+    val_med_q, val_med_g = load_vehicleid_split(
+        root_dir=root_dir, split_name="Medium", seed=split_seed, legacy_resize=legacy_resize
+    )
+    test_large_q, test_large_g = load_vehicleid_split(
+        root_dir=root_dir, split_name="Large", seed=split_seed, legacy_resize=legacy_resize
+    )
+    train_ids = {s.vehicle_id for s in train_samples}
+    print(
+        f"[OK] PKU-VehicleID Splits Ready (seed={split_seed}): "
+        f"Train={len(train_ids)} IDs ({len(train_samples)} imgs) | "
+        f"Val Small=800 IDs ({len(val_small_q)} Q, {len(val_small_g)} G) | "
+        f"Val Medium (Best Selection)=1600 IDs ({len(val_med_q)} Q, {len(val_med_g)} G) | "
+        f"Final Test Large=2400 IDs ({len(test_large_q)} Q, {len(test_large_g)} G)"
+    )
+    return (
+        train_samples,
+        val_small_q,
+        val_small_g,
+        val_med_q,
+        val_med_g,
+        test_large_q,
+        test_large_g,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -509,6 +624,13 @@ def finetune_gasnet_from_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     vrai_val_ids = int(ec.get("vrai_val_ids", 1000))
 
     # 1. Load dataset according to `train.dataset`
+    aux_val_q_dataset: Optional[SimpleReIDDataset] = None
+    aux_val_g_dataset: Optional[SimpleReIDDataset] = None
+    aux_val_label = ""
+    final_test_q_dataset: Optional[SimpleReIDDataset] = None
+    final_test_g_dataset: Optional[SimpleReIDDataset] = None
+    final_test_label = ""
+
     if dataset_name in ("veri", "veri776", "veri-776"):
         train_samples = load_veri_train_samples(root_dir=data_root)
         val_q_dataset, val_g_dataset = load_veri776(root_dir=data_root, legacy_resize=legacy_resize)
@@ -528,9 +650,26 @@ def finetune_gasnet_from_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
             legacy_resize=legacy_resize,
         )
         dataset_label = "VRU (Small)"
+    elif dataset_name in ("vehicleid", "vehicleid_v1.0", "pku_vehicleid", "pku-vehicleid"):
+        (
+            train_samples,
+            aux_val_q_dataset,
+            aux_val_g_dataset,
+            val_q_dataset,
+            val_g_dataset,
+            final_test_q_dataset,
+            final_test_g_dataset,
+        ) = prepare_vehicleid_splits(
+            root_dir=data_root,
+            split_seed=split_seed,
+            legacy_resize=legacy_resize,
+        )
+        aux_val_label = "VehicleID Small (800)"
+        dataset_label = "VehicleID Medium (1600)"
+        final_test_label = "VehicleID Large (2400)"
     else:
         raise ValueError(
-            f"[FAIL] Unsupported train.dataset={dataset_name!r}. Choose from 'veri', 'vrai', or 'vru'."
+            f"[FAIL] Unsupported train.dataset={dataset_name!r}. Choose from 'veri', 'vrai', 'vru', or 'vehicleid'."
         )
 
     train_ids = sorted({s.vehicle_id for s in train_samples})
@@ -652,20 +791,35 @@ def finetune_gasnet_from_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     # 4. Evaluate Epoch 0 (Zero-Shot Baseline)
     base_model_ref = getattr(model, "_orig_mod", model)
     init_metrics = {"mAP": 0.0, "Rank-1": 0.0, "Rank-5": 0.0, "Rank-10": 0.0, "mINP": 0.0}
+    init_small_metrics = {"mAP": 0.0, "Rank-1": 0.0, "Rank-5": 0.0, "Rank-10": 0.0, "mINP": 0.0}
     if eval_epoch_0:
         print(f"[EVAL] Evaluating Epoch 0 (Pretrained Zero-Shot Baseline) on {dataset_label}...")
         model.eval()
+        if aux_val_q_dataset is not None and aux_val_g_dataset is not None:
+            init_small_metrics = evaluate_dataset_on_model(
+                base_model_ref, aux_val_q_dataset, aux_val_g_dataset, batch_size=eval_batch_size, device=device
+            )
+            print(
+                f" -> [Epoch 0 Baseline | {aux_val_label}] mAP: {init_small_metrics['mAP']:.2f}% | "
+                f"Rank-1: {init_small_metrics['Rank-1']:.2f}% | Rank-5: {init_small_metrics['Rank-5']:.2f}% | "
+                f"Rank-10: {init_small_metrics['Rank-10']:.2f}% | mINP: {init_small_metrics['mINP']:.2f}%"
+            )
         init_metrics = evaluate_dataset_on_model(
             base_model_ref, val_q_dataset, val_g_dataset, batch_size=eval_batch_size, device=device
         )
         print(
-            f" -> [Epoch 0 Baseline] mAP: {init_metrics['mAP']:.2f}% | "
+            f" -> [Epoch 0 Baseline | {dataset_label}] mAP: {init_metrics['mAP']:.2f}% | "
+            f"Rank-1: {init_metrics['Rank-1']:.2f}% | Rank-5: {init_metrics['Rank-5']:.2f}% | "
+            f"Rank-10: {init_metrics['Rank-10']:.2f}% | mINP: {init_metrics['Rank-10']:.2f}%"
+            if False
+            else f" -> [Epoch 0 Baseline | {dataset_label}] mAP: {init_metrics['mAP']:.2f}% | "
             f"Rank-1: {init_metrics['Rank-1']:.2f}% | Rank-5: {init_metrics['Rank-5']:.2f}% | "
             f"Rank-10: {init_metrics['Rank-10']:.2f}% | mINP: {init_metrics['mINP']:.2f}%"
         )
 
     best_map = float(init_metrics["mAP"])
     best_metrics = dict(init_metrics)
+    best_small_metrics = dict(init_small_metrics)
     best_epoch = 0
     if save_best:
         torch.save(base_model_ref.state_dict(), best_save_path)
@@ -764,38 +918,86 @@ def finetune_gasnet_from_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
         if run_eval_flag and ((eval_every > 0 and epoch % eval_every == 0) or epoch == epochs):
             model.eval()
+            cur_small_metrics = None
+            if aux_val_q_dataset is not None and aux_val_g_dataset is not None:
+                cur_small_metrics = evaluate_dataset_on_model(
+                    base_model_ref, aux_val_q_dataset, aux_val_g_dataset, batch_size=eval_batch_size, device=device
+                )
+                print(
+                    f" -> [Eval Epoch {epoch:02d} | {aux_val_label}] mAP: {cur_small_metrics['mAP']:.2f}% | "
+                    f"Rank-1: {cur_small_metrics['Rank-1']:.2f}% | Rank-5: {cur_small_metrics['Rank-5']:.2f}% | "
+                    f"Rank-10: {cur_small_metrics['Rank-10']:.2f}% | mINP: {cur_small_metrics['mINP']:.2f}%"
+                )
+
             cur_metrics = evaluate_dataset_on_model(
                 base_model_ref, val_q_dataset, val_g_dataset, batch_size=eval_batch_size, device=device
             )
             cur_map = float(cur_metrics["mAP"])
             improved = cur_map > best_map
-            marker = " *NEW BEST*" if improved else ""
+            marker = f" *NEW BEST ({dataset_label})*" if improved else ""
             print(
-                f" -> [Eval Epoch {epoch:02d}] mAP: {cur_map:.2f}% | "
+                f" -> [Eval Epoch {epoch:02d} | {dataset_label}] mAP: {cur_map:.2f}% | "
                 f"Rank-1: {cur_metrics['Rank-1']:.2f}% | Rank-5: {cur_metrics['Rank-5']:.2f}% | "
                 f"Rank-10: {cur_metrics['Rank-10']:.2f}% | mINP: {cur_metrics['mINP']:.2f}%{marker}"
             )
             if improved:
                 best_map = cur_map
                 best_metrics = dict(cur_metrics)
+                if cur_small_metrics is not None:
+                    best_small_metrics = dict(cur_small_metrics)
                 best_epoch = epoch
                 if save_best:
                     torch.save(base_model_ref.state_dict(), best_save_path)
-                    print(f"    [OK] Updated best checkpoint @ epoch {epoch} -> {best_save_path}")
+                    print(f"    [OK] Updated best checkpoint (selected on {dataset_label}) @ epoch {epoch} -> {best_save_path}")
 
     last_save_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(base_model_ref.state_dict(), last_save_path)
+
+    # 6. Post-Training Evaluation on Held-Out Final Test Set (e.g. VehicleID Large 2400)
+    final_large_metrics: Dict[str, float] = {}
+    if run_eval_flag and final_test_q_dataset is not None and final_test_g_dataset is not None:
+        print("\n" + "=" * 90)
+        print(
+            f"[FINAL TEST] Loading Best Checkpoint (selected on {dataset_label} @ Epoch {best_epoch}) "
+            f"to evaluate on held-out {final_test_label}..."
+        )
+        if best_save_path.is_file():
+            best_sd = torch.load(best_save_path, map_location=device, weights_only=False)
+            base_model_ref.load_state_dict(best_sd, strict=False)
+        model.eval()
+        final_large_metrics = evaluate_dataset_on_model(
+            base_model_ref, final_test_q_dataset, final_test_g_dataset, batch_size=eval_batch_size, device=device
+        )
+        print(
+            f" -> [FINAL TEST | {final_test_label}] mAP: {final_large_metrics['mAP']:.2f}% | "
+            f"Rank-1: {final_large_metrics['Rank-1']:.2f}% | Rank-5: {final_large_metrics['Rank-5']:.2f}% | "
+            f"Rank-10: {final_large_metrics['Rank-10']:.2f}% | mINP: {final_large_metrics['mINP']:.2f}%"
+        )
+        print("=" * 90)
+
     print("-" * 90)
     print(
         f"[SUMMARY] {model.backbone_type} ({gate_cfg}, {pool_label}) on {dataset_label}: "
         f"mAP {init_metrics['mAP']:.2f}% (Epoch 0) -> {best_map:.2f}% (Best @ Epoch {best_epoch}) | "
         f"Rank-1: {init_metrics['Rank-1']:.2f}% -> {best_metrics['Rank-1']:.2f}%"
     )
+    if aux_val_q_dataset is not None:
+        print(
+            f"[SUMMARY | {aux_val_label} @ Best Epoch {best_epoch}] "
+            f"mAP: {best_small_metrics['mAP']:.2f}% | Rank-1: {best_small_metrics['Rank-1']:.2f}% | "
+            f"Rank-5: {best_small_metrics['Rank-5']:.2f}% | Rank-10: {best_small_metrics['Rank-10']:.2f}%"
+        )
+    if final_large_metrics:
+        print(
+            f"[SUMMARY | {final_test_label} (Held-Out Final Test)] "
+            f"mAP: {final_large_metrics['mAP']:.2f}% | Rank-1: {final_large_metrics['Rank-1']:.2f}% | "
+            f"Rank-5: {final_large_metrics['Rank-5']:.2f}% | Rank-10: {final_large_metrics['Rank-10']:.2f}%"
+        )
     print(f"[OK] Saved Best Checkpoint: {best_save_path}")
     print(f"[OK] Saved Last Checkpoint: {last_save_path}")
     print("-" * 90)
 
-    return {
+    result_dict: Dict[str, Any] = {
         "backbone": model.backbone_type,
         "gate": gate_cfg,
         "use_gem": use_gem,
@@ -811,6 +1013,24 @@ def finetune_gasnet_from_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "best_checkpoint": str(best_save_path),
         "last_checkpoint": str(last_save_path),
     }
+    if aux_val_q_dataset is not None:
+        result_dict.update({
+            "small_init_mAP": init_small_metrics["mAP"],
+            "small_mAP": best_small_metrics["mAP"],
+            "small_Rank1": best_small_metrics["Rank-1"],
+            "small_Rank5": best_small_metrics["Rank-5"],
+            "small_Rank10": best_small_metrics["Rank-10"],
+            "small_mINP": best_small_metrics["mINP"],
+        })
+    if final_large_metrics:
+        result_dict.update({
+            "large_mAP": final_large_metrics["mAP"],
+            "large_Rank1": final_large_metrics["Rank-1"],
+            "large_Rank5": final_large_metrics["Rank-5"],
+            "large_Rank10": final_large_metrics["Rank-10"],
+            "large_mINP": final_large_metrics["mINP"],
+        })
+    return result_dict
 
 
 # --------------------------------------------------------------------------- #
@@ -863,7 +1083,15 @@ def run_finetune_for_variant(
     out_dir = Path(output_dir)
     save_path = out_dir / f"gasnet_{variant}{pool_suffix}.best.pth"
 
-    ds_key = "veri" if "veri" in dataset_label.lower() else ("vrai" if "vrai" in dataset_label.lower() else "vru")
+    ds_label_lower = dataset_label.lower()
+    if "veri" in ds_label_lower:
+        ds_key = "veri"
+    elif "vrai" in ds_label_lower:
+        ds_key = "vrai"
+    elif "vehicleid" in ds_label_lower:
+        ds_key = "vehicleid"
+    else:
+        ds_key = "vru"
     cfg = {
         "paths": {
             "weight_path": str(ckpt_file),

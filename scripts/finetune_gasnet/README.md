@@ -7,7 +7,7 @@ Hệ thống finetune sử dụng chung cấu trúc file cấu hình YAML giốn
 * `model.backbone`: `dinov3_convnext` | `resnet50_ibn` | `resnet50` | `swin_t`
 * `model.gate`: `bcgg` | `rga`
 * `model.use_gem`: `true` (GeMPool p=3.0) | `false` (AvgPool cho Bảng 5.4)
-* `train.dataset`: `veri` | `vrai` | `vru`
+* `train.dataset`: `veri` | `vrai` | `vru` | `vehicleid`
 
 ---
 
@@ -116,6 +116,20 @@ python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml
             paths.save_path=weights/vrai/gasnet_resnet_rga.best.pth \
             model.backbone=resnet50_ibn model.gate=rga \
             train.backbone_lr=3.5e-5
+  ```
+
+#### 3. Finetune trên **PKU-VehicleID V1.0** (`train.dataset=vehicleid` — Train trên 13,164 IDs; Valid trên Small 800 & Medium 1600; Chọn Best Checkpoint theo Medium 1600; Đánh giá cuối sau khi train xong trên Large 2400):
+* **Chạy riêng script `finetune_vehicleid.py` (tất cả 3 biến thể hoặc từng biến thể):**
+  ```bash
+  python3 -m scripts.finetune_gasnet.finetune_vehicleid --variant all --epochs 15
+  ```
+* **Hoặc chạy bằng config YAML (`--set train.dataset=vehicleid`):**
+  ```bash
+  python3 -m scripts.finetune_gasnet --config configs/gasnet_finetune.yaml \
+      --set train.dataset=vehicleid train.epochs=15 \
+            paths.weight_path=weights/gasnet_convnext_bcgg.best.pth \
+            paths.save_path=weights/vehicleid/gasnet_convnext_bcgg.best.pth \
+            model.backbone=dinov3_convnext model.gate=bcgg
   ```
 
 ---

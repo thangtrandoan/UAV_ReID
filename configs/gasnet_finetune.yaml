@@ -31,7 +31,7 @@ model:
   num_attention_heads: 4
 
 train:
-  dataset: veri                              # veri | vrai | vru
+  dataset: veri                              # veri | vrai | vru | vehicleid
   seed: 42
   epochs: 15                                 # Số epoch finetune (12 - 20 epoch)
   freeze_epochs: 2                           # Số epoch đầu đóng băng Backbone/Gate/BNNeck để làm nóng Classifier mới

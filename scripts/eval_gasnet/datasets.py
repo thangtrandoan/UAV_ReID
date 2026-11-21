@@ -192,43 +192,117 @@ def load_veri776(
 
 
 # --------------------------------------------------------------------------- #
-# VehicleID (Brno) Loader
+# PKU-VehicleID (V1.0) Loader (Small: 800, Medium: 1600, Large: 2400)
 # --------------------------------------------------------------------------- #
-def load_vehicleid(
+def resolve_vehicleid_dir(custom_root: Optional[Union[str, Path]] = None) -> Path:
+    """Resolve PKU-VehicleID directory (`VehicleID_V1.0` or `VehicleID`)."""
+    for candidate_name in ("VehicleID_V1.0", "VehicleID"):
+        cand = resolve_dataset_path(candidate_name, custom_root)
+        if cand.exists() and (cand / "image").is_dir() and (cand / "train_test_split").is_dir():
+            return cand
+    # Fallback default path
+    cand_v1 = resolve_dataset_path("VehicleID_V1.0", custom_root)
+    if cand_v1.exists():
+        return cand_v1
+    return resolve_dataset_path("VehicleID", custom_root)
+
+
+def load_vehicleid_split(
     root_dir: Optional[Union[str, Path]] = None,
+    split_name: str = "Small",
+    seed: int = 42,
     transform=None,
     legacy_resize: bool = False,
 ) -> Tuple[SimpleReIDDataset, SimpleReIDDataset]:
-    """Load VehicleID (Brno dataset) from img_database (1,232 vehicle pairs).
+    """Load PKU-VehicleID (V1.0) dataset with Small (800), Medium (1600), or Large (2400) split.
 
-    Protocol:
-    - Queries: Camera A images ({pair_id}_A_{frame}.png) -> 1,232 images
-    - Gallery: Camera B images ({pair_id}_B_{frame}.png) -> 1,232 images
-    Matches: vehicle_id == pair_id across cameras A and B.
+    Protocol: Exactly 1 image per vehicle identity is sampled for the gallery (seeded),
+    and all remaining images of those identities are queries.
     """
-    veh_dir = resolve_dataset_path("VehicleID", root_dir)
+    veh_dir = resolve_vehicleid_dir(root_dir)
     if not veh_dir.exists():
-        raise FileNotFoundError(f"VehicleID directory not found at: {veh_dir}")
+        raise FileNotFoundError(f"PKU-VehicleID directory not found at: {veh_dir}")
 
-    img_dir = veh_dir / "img_database"
-    if not img_dir.exists():
-        raise FileNotFoundError(f"img_database not found in {veh_dir}")
+    img_dir = veh_dir / "image"
+    split_dir = veh_dir / "train_test_split"
+    if not img_dir.is_dir():
+        raise FileNotFoundError(f"VehicleID image directory not found: {img_dir}")
+    if not split_dir.is_dir():
+        raise FileNotFoundError(f"VehicleID train_test_split directory not found: {split_dir}")
 
+    split_file_map = {
+        "small": "test_list_800.txt",
+        "800": "test_list_800.txt",
+        "medium": "test_list_1600.txt",
+        "1600": "test_list_1600.txt",
+        "large": "test_list_2400.txt",
+        "big": "test_list_2400.txt",
+        "2400": "test_list_2400.txt",
+        "3200": "test_list_3200.txt",
+        "6000": "test_list_6000.txt",
+        "13164": "test_list_13164.txt",
+        "full": "test_list_13164.txt",
+    }
+    key = str(split_name).strip().lower()
+    fname = split_file_map.get(key, "test_list_800.txt")
+    split_file = split_dir / fname
+    if not split_file.exists():
+        raise FileNotFoundError(f"VehicleID split file {fname} not found in {split_dir}")
+
+    samples_by_id: Dict[int, List[ReIDSample]] = {}
+    with split_file.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            img_id = parts[0]
+            veh_id = int(parts[1])
+            img_name = f"{img_id}.jpg" if not img_id.endswith(".jpg") else img_id
+            img_path = img_dir / img_name
+            if img_path.exists():
+                sample = ReIDSample(
+                    img_path=img_path,
+                    vehicle_id=veh_id,
+                    camera_id=-1,
+                    image_name=img_name,
+                )
+                samples_by_id.setdefault(veh_id, []).append(sample)
+
+    rng = random.Random(seed)
     query_samples: List[ReIDSample] = []
     gallery_samples: List[ReIDSample] = []
 
-    for f in sorted(img_dir.glob("*.png")):
-        parts = f.stem.split("_")
-        if len(parts) >= 2 and parts[0].isdigit():
-            pair_id = int(parts[0])
-            cam = parts[1]
-            if cam == "A":
-                query_samples.append(ReIDSample(img_path=f, vehicle_id=pair_id, camera_id=0, image_name=f.name))
-            elif cam == "B":
-                gallery_samples.append(ReIDSample(img_path=f, vehicle_id=pair_id, camera_id=1, image_name=f.name))
+    for vid, group in samples_by_id.items():
+        if len(group) < 2:
+            continue
+        g_idx = rng.randrange(len(group))
+        gallery_samples.append(group[g_idx])
+        query_samples.extend(group[:g_idx])
+        query_samples.extend(group[g_idx + 1:])
 
     tfm = transform or get_default_eval_transform(224, legacy_resize=legacy_resize)
-    return SimpleReIDDataset(query_samples, transform=tfm), SimpleReIDDataset(gallery_samples, transform=tfm)
+    return (
+        SimpleReIDDataset(query_samples, transform=tfm),
+        SimpleReIDDataset(gallery_samples, transform=tfm),
+    )
+
+
+def load_vehicleid(
+    root_dir: Optional[Union[str, Path]] = None,
+    split_name: str = "Small",
+    seed: int = 42,
+    transform=None,
+    legacy_resize: bool = False,
+) -> Tuple[SimpleReIDDataset, SimpleReIDDataset]:
+    """Load PKU-VehicleID split (default Small=800; supports Small/800, Medium/1600, Large/2400)."""
+    return load_vehicleid_split(
+        root_dir=root_dir,
+        split_name=split_name,
+        seed=seed,
+        transform=transform,
+        legacy_resize=legacy_resize,
+    )
 
 
 # --------------------------------------------------------------------------- #

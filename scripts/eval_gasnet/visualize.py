@@ -14,7 +14,10 @@ import os
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None  # type: ignore
 import numpy as np
 import torch
 import torch.nn.functional as F
