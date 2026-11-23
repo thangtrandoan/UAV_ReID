@@ -1,0 +1,40 @@
+{
+  "timestamp_utc": "2026-11-23T10:54:50.022358+00:00",
+  "hostname": "sandbox",
+  "platform": "Linux-5.15.199-tegra-aarch64-with-glibc2.35",
+  "device_tree_model": "unknown",
+  "l4t_tegra_release": "# R36 (release), REVISION: 5.2, GCID: 46426093, BOARD: generic, EABI: aarch64, DATE: Thu Jul 16 18:56:22 UTC 2026\n# KERNEL_VARIANT: oot\nTARGET_USERSPACE_LIB_DIR=nvidia\nTARGET_USERSPACE_LIB_DIR_PATH=usr/lib/aarch64-linux-gnu/nvidia",
+  "python_version": "3.10.12",
+  "pytorch_version": "2.5.0",
+  "cuda_version": "12.6",
+  "cudnn_version": 90300,
+  "tensorrt_version": "10.3.0",
+  "trtexec_exists": true,
+  "gpu": {
+    "available": true,
+    "name": "Orin",
+    "total_vram_MiB": 62827.9,
+    "compute_capability": "8.7",
+    "multi_processor_count": 16,
+    "bf16_supported": true
+  },
+  "nvpmodel": {
+    "returncode": 0,
+    "power_mode": "NV Power Mode: MAXN",
+    "raw_output": "NVPM ERROR: Failed to open /proc/device-tree/compatible! (No such file or directory)\nNV Power Mode: MAXN\n0",
+    "raw_error": ""
+  },
+  "thermals_c": {
+    "cpu-thermal": 45.66,
+    "gpu-thermal": 41.75,
+    "soc0-thermal": 42.62,
+    "soc1-thermal": 41.59,
+    "soc2-thermal": 41.69,
+    "tj-thermal": 45.47
+  },
+  "git": {
+    "branch": "main",
+    "commit_sha": "92926f0b5fdb564a66ed4520f7f2b7f9cc0c2d54",
+    "dirty": true
+  }
+}

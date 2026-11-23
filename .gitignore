@@ -41,6 +41,12 @@ logs/
 *.pt
 *.onnx
 *.engine
+*.engine.meta.json
+*.plan
+*.trt
+*.cache
+*.cache.lock
+**/engines/
 *.bin
 *.safetensors
 

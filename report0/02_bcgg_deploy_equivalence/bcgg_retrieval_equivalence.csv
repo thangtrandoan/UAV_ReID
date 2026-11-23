@@ -1,0 +1,2 @@
+domain,dataset,split,checkpoint_sha256,valid_queries,unfolded_mAP,folded_mAP,delta_mAP,unfolded_R1,folded_R1,delta_R1,unfolded_mINP,folded_mINP,delta_mINP,rank1_flips
+vrai,VRAI,Val (1000 IDs),11dc4fb52118a165b04ce0686dad402a7eec871da29d00f1ce54a6f2191f7186,4907,91.5178,91.5178,+0.000000,87.7114,87.7114,+0.000000,91.5178,91.5178,+0.000000,0

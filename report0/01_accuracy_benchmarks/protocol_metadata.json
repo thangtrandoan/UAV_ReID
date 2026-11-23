@@ -1,0 +1,179 @@
+{
+  "preprocess": {
+    "img_size": 224,
+    "legacy_resize": false,
+    "description": "Resize(224,224,BICUBIC)",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "primary_precision": "fp32",
+  "datasets": {
+    "veri": {
+      "dataset": "VeRi-776",
+      "split": "Full Test",
+      "dir": "/home/nvidia/thang/UAV_ReID/data/VeRi",
+      "cross_camera_filter": true,
+      "total_queries_before_filter": 1678,
+      "gallery_size": 11579,
+      "unique_query_ids": 200,
+      "unique_gallery_ids": 200
+    },
+    "vehicleid": {
+      "splits": [
+        800,
+        1600,
+        2400
+      ],
+      "seeds": [
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51
+      ],
+      "dir": "data/VehicleID_V1.0"
+    },
+    "vru": {
+      "splits": {
+        "Small": {
+          "dataset": "VRU",
+          "split": "Small (1200)",
+          "split_file": "/home/nvidia/thang/UAV_ReID/data/VRU/train_test_split/test_list_1200.txt",
+          "seed": 42,
+          "cross_camera_filter": false,
+          "total_queries_before_filter": 12720,
+          "gallery_size": 1200,
+          "unique_query_ids": 1200,
+          "unique_gallery_ids": 1200
+        },
+        "Medium": {
+          "dataset": "VRU",
+          "split": "Medium (2400)",
+          "split_file": "/home/nvidia/thang/UAV_ReID/data/VRU/train_test_split/test_list_2400.txt",
+          "seed": 42,
+          "cross_camera_filter": false,
+          "total_queries_before_filter": 24945,
+          "gallery_size": 2400,
+          "unique_query_ids": 2400,
+          "unique_gallery_ids": 2400
+        },
+        "Large": {
+          "dataset": "VRU",
+          "split": "Large (8000)",
+          "split_file": "/home/nvidia/thang/UAV_ReID/data/VRU/train_test_split/test_list_8000.txt",
+          "seed": 42,
+          "cross_camera_filter": false,
+          "total_queries_before_filter": 83595,
+          "gallery_size": 8000,
+          "unique_query_ids": 8000,
+          "unique_gallery_ids": 8000
+        }
+      }
+    },
+    "vrai": {
+      "dataset": "VRAI",
+      "split": "Val (1000 IDs)",
+      "dir": "/home/nvidia/thang/UAV_ReID/data/VRAI",
+      "seed": 42,
+      "train_disjoint_ids": 5302,
+      "val_ids": 1000,
+      "overlap_with_train": 0,
+      "cross_camera_filter": true,
+      "total_queries_before_filter": 9485,
+      "gallery_size": 1000,
+      "unique_query_ids": 1000,
+      "unique_gallery_ids": 1000,
+      "valid_queries_after_filter": 4907
+    }
+  },
+  "skipped": [
+    {
+      "domain": "veri",
+      "model": "resnet50ibn_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_resnet_rga.best.pth"
+    },
+    {
+      "domain": "veri",
+      "model": "convnext_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_convnext_rga.best.pth"
+    },
+    {
+      "domain": "veri",
+      "model": "convnext_bcgg",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_convnext_bcgg.best.pth"
+    },
+    {
+      "domain": "vehicleid",
+      "model": "split_800",
+      "reason": "[FAIL] VehicleID_V1.0 split 800 not found at /home/nvidia/thang/UAV_ReID/data/VehicleID_V1.0 (ensure VehicleID_V1.0.zip is extracted with test_list_*.txt and image/)."
+    },
+    {
+      "domain": "vehicleid",
+      "model": "split_1600",
+      "reason": "[FAIL] VehicleID_V1.0 split 1600 not found at /home/nvidia/thang/UAV_ReID/data/VehicleID_V1.0 (ensure VehicleID_V1.0.zip is extracted with test_list_*.txt and image/)."
+    },
+    {
+      "domain": "vehicleid",
+      "model": "split_2400",
+      "reason": "[FAIL] VehicleID_V1.0 split 2400 not found at /home/nvidia/thang/UAV_ReID/data/VehicleID_V1.0 (ensure VehicleID_V1.0.zip is extracted with test_list_*.txt and image/)."
+    },
+    {
+      "domain": "vru_Small",
+      "model": "resnet50ibn_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_resnet_rga.best.pth"
+    },
+    {
+      "domain": "vru_Small",
+      "model": "convnext_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_rga.best.pth"
+    },
+    {
+      "domain": "vru_Small",
+      "model": "convnext_bcgg",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
+    },
+    {
+      "domain": "vru_Medium",
+      "model": "resnet50ibn_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_resnet_rga.best.pth"
+    },
+    {
+      "domain": "vru_Medium",
+      "model": "convnext_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_rga.best.pth"
+    },
+    {
+      "domain": "vru_Medium",
+      "model": "convnext_bcgg",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
+    },
+    {
+      "domain": "vru_Large",
+      "model": "resnet50ibn_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_resnet_rga.best.pth"
+    },
+    {
+      "domain": "vru_Large",
+      "model": "convnext_rga",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_rga.best.pth"
+    },
+    {
+      "domain": "vru_Large",
+      "model": "convnext_bcgg",
+      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
+    }
+  ]
+}

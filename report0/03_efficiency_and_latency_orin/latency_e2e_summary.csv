@@ -1,0 +1,4 @@
+config,display_name,gallery_size,topk,preprocess_p50_ms,h2d_p50_ms,trt_infer_p50_ms,d2h_p50_ms,match_top10_p50_ms,e2e_p5_ms,e2e_p50_ms,e2e_p95_ms,e2e_mean_ms,e2e_std_ms,e2e_fps,pct_under_33_33ms,pct_under_40ms,crop_source
+resnet50ibn_rga,ResNet50-IBN + RGA,8000,10,1.7513,0.3108,7.0057,0.1679,1.6876,10.7780,15.3536,20.8582,14.9514,3.0213,65.13,100.00,100.00,/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg
+convnext_rga,ConvNeXt + RGA,8000,10,1.7099,0.2649,8.1546,0.1485,0.7778,10.7506,11.0570,19.7737,11.9685,2.7436,90.44,100.00,100.00,/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg
+convnext_bcgg_folded,ConvNeXt + BCGG (Folded),8000,10,1.7165,0.2510,4.9274,0.1263,0.7226,7.6726,7.8526,11.9441,8.4071,1.4934,127.35,100.00,100.00,/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg

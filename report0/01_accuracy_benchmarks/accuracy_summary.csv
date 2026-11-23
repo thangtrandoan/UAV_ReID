@@ -1,0 +1,4 @@
+dataset,split,model,precision,valid_queries,gallery_size,mAP,R1,R5,R10,mINP,mAP_std,R1_std,R5_std,R10_std,mINP_std
+VRAI,Val (1000 IDs),resnet50ibn_rga,FP32,4907,1000,86.35,80.23,93.83,95.94,86.35,,,,,
+VRAI,Val (1000 IDs),convnext_rga,FP32,4907,1000,92.34,88.81,96.64,97.39,92.34,,,,,
+VRAI,Val (1000 IDs),convnext_bcgg,FP32,4907,1000,91.52,87.71,96.35,97.49,91.52,,,,,

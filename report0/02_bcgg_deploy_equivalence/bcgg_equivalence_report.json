@@ -1,0 +1,59 @@
+{
+  "fp32_max_diff_threshold": 0.0001,
+  "verified_domains": [
+    {
+      "domain": "vrai",
+      "dataset": "VRAI",
+      "split": "Val (1000 IDs)",
+      "checkpoint_path": "/home/nvidia/thang/UAV_ReID/weights/vrai/gasnet_convnext_bcgg.best.pth",
+      "checkpoint_sha256": "11dc4fb52118a165b04ce0686dad402a7eec871da29d00f1ce54a6f2191f7186",
+      "tensor_equivalence": {
+        "fp32": {
+          "z_max_abs_diff": 5.078315734863281e-05,
+          "z_mean_abs_diff": 2.851269982784288e-06,
+          "z_min_cosine_sim": 0.9999999403953552,
+          "z_mean_cosine_sim": 1.0
+        },
+        "fp16": {
+          "z_max_abs_diff": 0.00022284314036369324,
+          "z_mean_abs_diff": 2.7540472729015164e-05,
+          "z_min_cosine_sim": 0.9999991655349731,
+          "z_mean_cosine_sim": 0.9999994039535522
+        }
+      },
+      "retrieval_equivalence": {
+        "valid_queries": 4907,
+        "unfolded": {
+          "mAP": 91.51779790136216,
+          "R1": 87.71143264723862,
+          "R5": 96.35214998981047,
+          "R10": 97.4933768086407,
+          "mINP": 91.51779790136216
+        },
+        "folded": {
+          "mAP": 91.5177981713248,
+          "R1": 87.71143264723862,
+          "R5": 96.35214998981047,
+          "R10": 97.4933768086407,
+          "mINP": 91.5177981713248
+        },
+        "delta": {
+          "mAP": 2.6996264068657183e-07,
+          "R1": 0.0,
+          "mINP": 2.6996264068657183e-07
+        },
+        "rank1_flips": 0
+      }
+    }
+  ],
+  "skipped_domains": [
+    {
+      "domain": "vru",
+      "reason": "Missing trained convnext_bcgg checkpoint for vru: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
+    },
+    {
+      "domain": "veri",
+      "reason": "Missing trained convnext_bcgg checkpoint for veri: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_convnext_bcgg.best.pth"
+    }
+  ]
+}

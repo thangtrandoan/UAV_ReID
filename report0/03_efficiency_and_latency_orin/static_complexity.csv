@@ -1,0 +1,5 @@
+config,display_name,backbone,gate,deployed,source_domain,checkpoint_path,total_params_M,gate_params_K,GFLOPs,GMACs,checkpoint_size_MB,serialized_weights_MB
+resnet50ibn_rga,ResNet50-IBN + RGA,resnet50_ibn,rga,False,vrai,/home/nvidia/thang/UAV_ReID/weights/vrai/gasnet_resnet_rga.best.pth,58.6691,14566.288,37.3973,18.6987,224.53,224.52
+convnext_rga,ConvNeXt + RGA,dinov3_convnext,rga,False,vrai,/home/nvidia/thang/UAV_ReID/weights/vrai/gasnet_convnext_rga.best.pth,62.2673,6703.888,35.8456,17.9228,237.94,237.93
+convnext_bcgg_unfolded,ConvNeXt + BCGG (Unfolded),dinov3_convnext,bcgg,False,vrai,/home/nvidia/thang/UAV_ReID/weights/vrai/gasnet_convnext_bcgg.best.pth,55.5912,27.860,17.7924,8.8962,212.40,212.38
+convnext_bcgg_folded,ConvNeXt + BCGG (Folded),dinov3_convnext,bcgg,True,vrai,/home/nvidia/thang/UAV_ReID/weights/vrai/gasnet_convnext_bcgg.best.pth,55.5900,26.580,17.7905,8.8953,212.40,212.35

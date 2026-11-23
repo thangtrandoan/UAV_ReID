@@ -650,6 +650,60 @@ class EConvNeXtStage(nn.Module):
         return self.layers(self.downsample_layers(x))
 
 
+class _DINOv3ConvNeXtLayer(nn.Module):
+    """Offline equivalent of a HuggingFace DINOv3 ConvNeXt layer."""
+
+    def __init__(self, dim: int, layer_scale_init_value: float = 1e-6):
+        super().__init__()
+        self.gamma = nn.Parameter(torch.full((dim,), layer_scale_init_value))
+        self.depthwise_conv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        self.layer_norm = nn.LayerNorm(dim, eps=1e-6)
+        self.pointwise_conv1 = nn.Linear(dim, 4 * dim)
+        self.activation_fn = nn.GELU()
+        self.pointwise_conv2 = nn.Linear(4 * dim, dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        residual = x
+        x = self.depthwise_conv(x)
+        x = x.permute(0, 2, 3, 1)
+        x = self.layer_norm(x)
+        x = self.pointwise_conv1(x)
+        x = self.activation_fn(x)
+        x = self.pointwise_conv2(x)
+        x = x * self.gamma
+        x = x.permute(0, 3, 1, 2)
+        return residual + x
+
+
+class _DINOv3ConvNeXtStage(nn.Module):
+    """Offline equivalent of a HuggingFace DINOv3 ConvNeXt stage."""
+
+    def __init__(self, in_channels: int, out_channels: int, depth: int, is_stem: bool):
+        super().__init__()
+        if is_stem:
+            self.downsample_layers = nn.ModuleList(
+                [
+                    nn.Conv2d(in_channels, out_channels, kernel_size=4, stride=4),
+                    LayerNorm2d(out_channels, eps=1e-6),
+                ]
+            )
+        else:
+            self.downsample_layers = nn.ModuleList(
+                [
+                    LayerNorm2d(in_channels, eps=1e-6),
+                    nn.Conv2d(in_channels, out_channels, kernel_size=2, stride=2),
+                ]
+            )
+        self.layers = nn.ModuleList([_DINOv3ConvNeXtLayer(out_channels) for _ in range(depth)])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for layer in self.downsample_layers:
+            x = layer(x)
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+
 class DINOv3ConvNeXtBackbone(nn.Module):
     CNN_DIMS = (96, 192, 384, 768)
     CNN_DEPTHS = (3, 3, 27, 3)
@@ -719,6 +773,15 @@ class DINOv3ConvNeXtBackbone(nn.Module):
             )
             self.stage3 = EConvNeXtStage(192, 384, num_blocks=27, use_ese=False)
             self.stage4 = EConvNeXtStage(384, 768, num_blocks=3, use_ese=False)
+            return
+
+        if not self.econvnext and not pretrained:
+            # Build standard DINOv3 ConvNeXt-Small directly offline (340 state_dict tensors)
+            self.stem = nn.Identity()
+            self.stage1 = _DINOv3ConvNeXtStage(3, 96, depth=3, is_stem=True)
+            self.stage2 = _DINOv3ConvNeXtStage(96, 192, depth=3, is_stem=False)
+            self.stage3 = _DINOv3ConvNeXtStage(192, 384, depth=27, is_stem=False)
+            self.stage4 = _DINOv3ConvNeXtStage(384, 768, depth=3, is_stem=False)
             return
 
         import transformers

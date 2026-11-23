@@ -1,0 +1,1 @@
+dataset,split,model,precision,run_idx,seed,valid_queries,gallery_size,mAP,R1,R5,R10,mINP

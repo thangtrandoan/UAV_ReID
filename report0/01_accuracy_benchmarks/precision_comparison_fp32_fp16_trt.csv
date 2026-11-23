@@ -1,0 +1,10 @@
+dataset,split,model,runtime_precision,valid_queries,gallery_size,mAP,R1,R5,R10,mINP,delta_mAP_vs_fp32,delta_R1_vs_fp32
+VRAI,Val (1000 IDs),resnet50ibn_rga,pytorch_fp32,4907,1000,86.35,80.23,93.83,95.94,86.35,+0.00,+0.00
+VRAI,Val (1000 IDs),resnet50ibn_rga,pytorch_fp16,4907,1000,86.35,80.23,93.83,95.94,86.35,+0.00,+0.00
+VRAI,Val (1000 IDs),convnext_rga,pytorch_fp32,4907,1000,92.34,88.81,96.64,97.39,92.34,+0.00,+0.00
+VRAI,Val (1000 IDs),convnext_rga,pytorch_fp16,4907,1000,92.34,88.81,96.64,97.39,92.34,+0.00,+0.00
+VRAI,Val (1000 IDs),convnext_bcgg,pytorch_fp32,4907,1000,91.52,87.71,96.35,97.49,91.52,+0.00,+0.00
+VRAI,Val (1000 IDs),convnext_bcgg,pytorch_fp16,4907,1000,91.51,87.71,96.35,97.49,91.51,-0.00,+0.00
+VRAI,Val (1000 IDs),resnet50ibn_rga,tensorrt_fp16,4907,1000,86.34,80.21,93.83,95.92,86.34,-0.01,-0.02
+VRAI,Val (1000 IDs),convnext_rga,tensorrt_fp16,4907,1000,92.34,88.79,96.64,97.41,92.34,+0.00,-0.02
+VRAI,Val (1000 IDs),convnext_bcgg,tensorrt_fp16,4907,1000,91.50,87.67,96.33,97.49,91.50,-0.02,-0.04

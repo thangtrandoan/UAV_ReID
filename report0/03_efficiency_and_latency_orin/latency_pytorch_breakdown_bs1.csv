@@ -1,0 +1,9 @@
+config,display_name,precision,total_p50_ms,backbone_p50_ms,gates_fs_head_p50_ms,gates_fs_head_pct
+resnet50ibn_rga,ResNet50-IBN + RGA,FP32,41.7344,14.9205,26.8139,64.25
+resnet50ibn_rga,ResNet50-IBN + RGA,FP16,49.6849,18.6950,30.9899,62.37
+convnext_rga,ConvNeXt + RGA,FP32,45.6352,18.3888,27.2464,59.70
+convnext_rga,ConvNeXt + RGA,FP16,58.9070,26.5256,32.3815,54.97
+convnext_bcgg_unfolded,ConvNeXt + BCGG (Unfolded),FP32,38.8241,18.2988,20.5253,52.87
+convnext_bcgg_unfolded,ConvNeXt + BCGG (Unfolded),FP16,49.6546,26.6664,22.9881,46.30
+convnext_bcgg_folded,ConvNeXt + BCGG (Folded),FP32,35.5850,18.3947,17.1904,48.31
+convnext_bcgg_folded,ConvNeXt + BCGG (Folded),FP16,46.9942,26.6278,20.3664,43.34

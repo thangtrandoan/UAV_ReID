@@ -1,0 +1,98 @@
+{
+  "hardware_before": {
+    "lock_requested": false,
+    "nvpmodel": {
+      "returncode": 0,
+      "power_mode": "NV Power Mode: MAXN",
+      "raw_output": "NVPM ERROR: Failed to open /proc/device-tree/compatible! (No such file or directory)\nNV Power Mode: MAXN\n0",
+      "raw_error": ""
+    },
+    "thermals_c": {
+      "cpu-thermal": 53.19,
+      "gpu-thermal": 49.28,
+      "soc0-thermal": 50.22,
+      "soc1-thermal": 49.31,
+      "soc2-thermal": 48.81,
+      "tj-thermal": 53.19
+    }
+  },
+  "hardware_after": {
+    "nvpmodel": {
+      "returncode": 0,
+      "power_mode": "NV Power Mode: MAXN",
+      "raw_output": "NVPM ERROR: Failed to open /proc/device-tree/compatible! (No such file or directory)\nNV Power Mode: MAXN\n0",
+      "raw_error": ""
+    },
+    "thermals_c": {
+      "cpu-thermal": 49.66,
+      "gpu-thermal": 46.38,
+      "soc0-thermal": 46.66,
+      "soc1-thermal": 45.72,
+      "soc2-thermal": 45.62,
+      "tj-thermal": 49.66
+    }
+  },
+  "crop_source": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg",
+  "e2e_summary": [
+    {
+      "config": "resnet50ibn_rga",
+      "display_name": "ResNet50-IBN + RGA",
+      "gallery_size": 8000,
+      "topk": 10,
+      "preprocess_p50_ms": "1.7513",
+      "h2d_p50_ms": "0.3108",
+      "trt_infer_p50_ms": "7.0057",
+      "d2h_p50_ms": "0.1679",
+      "match_top10_p50_ms": "1.6876",
+      "e2e_p5_ms": "10.7780",
+      "e2e_p50_ms": "15.3536",
+      "e2e_p95_ms": "20.8582",
+      "e2e_mean_ms": "14.9514",
+      "e2e_std_ms": "3.0213",
+      "e2e_fps": "65.13",
+      "pct_under_33_33ms": "100.00",
+      "pct_under_40ms": "100.00",
+      "crop_source": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg"
+    },
+    {
+      "config": "convnext_rga",
+      "display_name": "ConvNeXt + RGA",
+      "gallery_size": 8000,
+      "topk": 10,
+      "preprocess_p50_ms": "1.7099",
+      "h2d_p50_ms": "0.2649",
+      "trt_infer_p50_ms": "8.1546",
+      "d2h_p50_ms": "0.1485",
+      "match_top10_p50_ms": "0.7778",
+      "e2e_p5_ms": "10.7506",
+      "e2e_p50_ms": "11.0570",
+      "e2e_p95_ms": "19.7737",
+      "e2e_mean_ms": "11.9685",
+      "e2e_std_ms": "2.7436",
+      "e2e_fps": "90.44",
+      "pct_under_33_33ms": "100.00",
+      "pct_under_40ms": "100.00",
+      "crop_source": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg"
+    },
+    {
+      "config": "convnext_bcgg_folded",
+      "display_name": "ConvNeXt + BCGG (Folded)",
+      "gallery_size": 8000,
+      "topk": 10,
+      "preprocess_p50_ms": "1.7165",
+      "h2d_p50_ms": "0.2510",
+      "trt_infer_p50_ms": "4.9274",
+      "d2h_p50_ms": "0.1263",
+      "match_top10_p50_ms": "0.7226",
+      "e2e_p5_ms": "7.6726",
+      "e2e_p50_ms": "7.8526",
+      "e2e_p95_ms": "11.9441",
+      "e2e_mean_ms": "8.4071",
+      "e2e_std_ms": "1.4934",
+      "e2e_fps": "127.35",
+      "pct_under_33_33ms": "100.00",
+      "pct_under_40ms": "100.00",
+      "crop_source": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0002_c002_00030600_0.jpg"
+    }
+  ]
+}
