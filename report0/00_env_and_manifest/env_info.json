@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-11-23T10:54:50.022358+00:00",
+  "timestamp_utc": "2026-11-25T08:04:19.739817+00:00",
   "hostname": "sandbox",
   "platform": "Linux-5.15.199-tegra-aarch64-with-glibc2.35",
   "device_tree_model": "unknown",
@@ -25,16 +25,16 @@
     "raw_error": ""
   },
   "thermals_c": {
-    "cpu-thermal": 45.66,
-    "gpu-thermal": 41.75,
-    "soc0-thermal": 42.62,
-    "soc1-thermal": 41.59,
-    "soc2-thermal": 41.69,
-    "tj-thermal": 45.47
+    "cpu-thermal": 42.38,
+    "gpu-thermal": 38.72,
+    "soc0-thermal": 39.78,
+    "soc1-thermal": 38.5,
+    "soc2-thermal": 38.69,
+    "tj-thermal": 42.38
   },
   "git": {
     "branch": "main",
-    "commit_sha": "92926f0b5fdb564a66ed4520f7f2b7f9cc0c2d54",
+    "commit_sha": "c27da5d0390c3b6c7da05816c32d2e8684c7905d",
     "dirty": true
   }
 }

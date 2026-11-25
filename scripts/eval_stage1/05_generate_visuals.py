@@ -450,6 +450,21 @@ def generate_metric_charts(out_root: Path, out_dir: Path, dpi: int) -> None:
         if not df_acc.empty:
             df_acc["mAP"] = df_acc["mAP"].astype(float)
             piv = df_acc.pivot_table(index=["dataset", "split"], columns="model", values="mAP", aggfunc="first")
+            split_order = {
+                ("VeRi-776", "Full Test"): 0,
+                ("VehicleID", "Test-800"): 1,
+                ("VehicleID", "Test-1600"): 2,
+                ("VehicleID", "Test-2400"): 3,
+                ("VRU", "Small (1200)"): 4,
+                ("VRU", "Medium (2400)"): 5,
+                ("VRU", "Large (8000)"): 6,
+                ("VRAI", "Val (1000 IDs)"): 7,
+            }
+            ordered_idx = sorted(
+                piv.index,
+                key=lambda item: (split_order.get((str(item[0]), str(item[1])), 99), str(item[0]), str(item[1])),
+            )
+            piv = piv.reindex(ordered_idx)
             labels = [f"{ds}\n({sp})" for ds, sp in piv.index]
             d_bb = []
             d_gate = []
@@ -463,7 +478,7 @@ def generate_metric_charts(out_root: Path, out_dir: Path, dpi: int) -> None:
 
             x = np.arange(len(labels))
             w = 0.36
-            fig, ax = plt.subplots(figsize=(max(7.5, len(labels) * 1.6), 4.8))
+            fig, ax = plt.subplots(figsize=(max(7.5, len(labels) * 1.35), 5.0))
             b1 = ax.bar(x - w / 2, d_bb, w, label="Backbone: ConvNeXt+RGA − ResNet50-IBN+RGA", color="#2B6CB0")
             b2 = ax.bar(x + w / 2, d_gate, w, label="Gate: ConvNeXt+BCGG − ConvNeXt+RGA", color="#2F855A")
             ax.axhline(0.0, color="#333333", linewidth=1.0)
@@ -621,6 +636,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Stage 1: Generate Chapter 5 Visualizations (300 DPI + PDF)")
     parser.add_argument("--config", type=str, default=str(SCRIPT_DIR / "eval_config.yaml"))
     parser.add_argument("--output-dir", type=str, default=None)
+    parser.add_argument(
+        "--charts-only",
+        action="store_true",
+        help="Regenerate only charts/ from existing CSVs without re-running retrieval/heatmap inference",
+    )
     args = parser.parse_args()
 
     cfg = load_eval_config(args.config)
@@ -628,19 +648,21 @@ def main() -> None:
     out_dir = out_root / "05_visualizations"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vis_cfg = cfg.get("visualizations", {})
     dpi = int(vis_cfg.get("dpi", 300))
-    prep_cfg = cfg.get("preprocess", {})
-    tfm, _ = build_eval_transform(
-        img_size=int(prep_cfg.get("img_size", 224)),
-        legacy_resize=bool(prep_cfg.get("legacy_resize", False)),
-        mean=prep_cfg.get("mean", [0.485, 0.456, 0.406]),
-        std=prep_cfg.get("std", [0.229, 0.224, 0.225]),
-    )
 
-    generate_retrieval_examples(cfg, out_dir, tfm, device, dpi)
-    generate_attention_heatmaps(cfg, out_dir, tfm, device, dpi)
+    if not args.charts_only:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        prep_cfg = cfg.get("preprocess", {})
+        tfm, _ = build_eval_transform(
+            img_size=int(prep_cfg.get("img_size", 224)),
+            legacy_resize=bool(prep_cfg.get("legacy_resize", False)),
+            mean=prep_cfg.get("mean", [0.485, 0.456, 0.406]),
+            std=prep_cfg.get("std", [0.229, 0.224, 0.225]),
+        )
+        generate_retrieval_examples(cfg, out_dir, tfm, device, dpi)
+        generate_attention_heatmaps(cfg, out_dir, tfm, device, dpi)
+
     generate_metric_charts(out_root, out_dir, dpi)
 
 

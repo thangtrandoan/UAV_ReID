@@ -24,7 +24,8 @@
       "total_queries_before_filter": 1678,
       "gallery_size": 11579,
       "unique_query_ids": 200,
-      "unique_gallery_ids": 200
+      "unique_gallery_ids": 200,
+      "valid_queries_after_filter": 1678
     },
     "vehicleid": {
       "splits": [
@@ -101,21 +102,6 @@
   },
   "skipped": [
     {
-      "domain": "veri",
-      "model": "resnet50ibn_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_resnet_rga.best.pth"
-    },
-    {
-      "domain": "veri",
-      "model": "convnext_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_convnext_rga.best.pth"
-    },
-    {
-      "domain": "veri",
-      "model": "convnext_bcgg",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/veri/gasnet_convnext_bcgg.best.pth"
-    },
-    {
       "domain": "vehicleid",
       "model": "split_800",
       "reason": "[FAIL] VehicleID_V1.0 split 800 not found at /home/nvidia/thang/UAV_ReID/data/VehicleID_V1.0 (ensure VehicleID_V1.0.zip is extracted with test_list_*.txt and image/)."
@@ -129,51 +115,6 @@
       "domain": "vehicleid",
       "model": "split_2400",
       "reason": "[FAIL] VehicleID_V1.0 split 2400 not found at /home/nvidia/thang/UAV_ReID/data/VehicleID_V1.0 (ensure VehicleID_V1.0.zip is extracted with test_list_*.txt and image/)."
-    },
-    {
-      "domain": "vru_Small",
-      "model": "resnet50ibn_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_resnet_rga.best.pth"
-    },
-    {
-      "domain": "vru_Small",
-      "model": "convnext_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_rga.best.pth"
-    },
-    {
-      "domain": "vru_Small",
-      "model": "convnext_bcgg",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
-    },
-    {
-      "domain": "vru_Medium",
-      "model": "resnet50ibn_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_resnet_rga.best.pth"
-    },
-    {
-      "domain": "vru_Medium",
-      "model": "convnext_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_rga.best.pth"
-    },
-    {
-      "domain": "vru_Medium",
-      "model": "convnext_bcgg",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
-    },
-    {
-      "domain": "vru_Large",
-      "model": "resnet50ibn_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_resnet_rga.best.pth"
-    },
-    {
-      "domain": "vru_Large",
-      "model": "convnext_rga",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_rga.best.pth"
-    },
-    {
-      "domain": "vru_Large",
-      "model": "convnext_bcgg",
-      "reason": "Missing checkpoint: /home/nvidia/thang/UAV_ReID/weights/vru/gasnet_convnext_bcgg.best.pth"
     }
   ]
 }

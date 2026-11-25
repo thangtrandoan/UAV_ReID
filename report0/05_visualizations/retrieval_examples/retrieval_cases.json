@@ -3,25 +3,25 @@
     "domain": "veri",
     "dataset": "VeRi-776",
     "case_type": "bcgg_corrects_resnet_error",
-    "query_image": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0014_c001_00041060_0.jpg",
-    "query_id": 14,
+    "query_image": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0035_c004_00001795_0.jpg",
+    "query_id": 35,
     "resnet_rank1_match": false,
     "bcgg_rank1_match": true,
-    "cross_domain_checkpoint": true,
-    "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_1_id_14.png",
-    "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_1_id_14.pdf"
+    "cross_domain_checkpoint": false,
+    "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_1_id_35.png",
+    "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_1_id_35.pdf"
   },
   {
     "domain": "veri",
     "dataset": "VeRi-776",
     "case_type": "bcgg_corrects_resnet_error",
-    "query_image": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0042_c004_00087105_0.jpg",
-    "query_id": 42,
+    "query_image": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0038_c003_00008510_1.jpg",
+    "query_id": 38,
     "resnet_rank1_match": false,
     "bcgg_rank1_match": true,
-    "cross_domain_checkpoint": true,
-    "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_2_id_42.png",
-    "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_2_id_42.pdf"
+    "cross_domain_checkpoint": false,
+    "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_2_id_38.png",
+    "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_veri_2_id_38.pdf"
   },
   {
     "domain": "vrai",
@@ -51,11 +51,11 @@
     "domain": "vru",
     "dataset": "VRU",
     "case_type": "bcgg_corrects_resnet_error",
-    "query_image": "/home/nvidia/thang/UAV_ReID/data/VRU/Pic/151720.jpg",
+    "query_image": "/home/nvidia/thang/UAV_ReID/data/VRU/Pic/151726.jpg",
     "query_id": 12924,
     "resnet_rank1_match": false,
     "bcgg_rank1_match": true,
-    "cross_domain_checkpoint": true,
+    "cross_domain_checkpoint": false,
     "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_vru_1_id_12924.png",
     "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_vru_1_id_12924.pdf"
   },
@@ -63,12 +63,12 @@
     "domain": "veri",
     "dataset": "VERI",
     "case_type": "failure_case_both_miss_rank1",
-    "query_image": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0027_c001_00013035_0.jpg",
-    "query_id": 27,
+    "query_image": "/home/nvidia/thang/UAV_ReID/data/VeRi/image_query/0030_c007_00054885_1.jpg",
+    "query_id": 30,
     "resnet_rank1_match": false,
     "bcgg_rank1_match": false,
-    "cross_domain_checkpoint": true,
-    "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_failure_case_veri_id_27.png",
-    "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_failure_case_veri_id_27.pdf"
+    "cross_domain_checkpoint": false,
+    "png_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_failure_case_veri_id_30.png",
+    "pdf_path": "/home/nvidia/thang/UAV_ReID/report0/05_visualizations/retrieval_examples/retrieval_failure_case_veri_id_30.pdf"
   }
 ]

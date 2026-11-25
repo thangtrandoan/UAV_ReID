@@ -1,2 +1,4 @@
 domain,dataset,split,checkpoint_sha256,valid_queries,unfolded_mAP,folded_mAP,delta_mAP,unfolded_R1,folded_R1,delta_R1,unfolded_mINP,folded_mINP,delta_mINP,rank1_flips
+vru,VRU,Small (1200),e4d8c700e3e34e96e3a4ad9d28a0c0ad9cd2e7fe6b203fcd84ef3cebcb05e472,12720,97.3610,97.3650,+0.003931,95.5346,95.5425,+0.007862,97.3610,97.3650,+0.003931,1
+veri,VeRi-776,Full Test,5e3b5ba3ce08eb46962ee21812dc998ff11e41e2572ae6ef8cf9772bbc2490ca,1678,77.5654,77.5653,-0.000183,94.2789,94.2789,+0.000000,40.1208,40.1209,+0.000075,2
 vrai,VRAI,Val (1000 IDs),11dc4fb52118a165b04ce0686dad402a7eec871da29d00f1ce54a6f2191f7186,4907,91.5178,91.5178,+0.000000,87.7114,87.7114,+0.000000,91.5178,91.5178,+0.000000,0

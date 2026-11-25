@@ -1,10 +1,19 @@
 dataset,split,model,runtime_precision,valid_queries,gallery_size,mAP,R1,R5,R10,mINP,delta_mAP_vs_fp32,delta_R1_vs_fp32
+VeRi-776,Full Test,resnet50ibn_rga,pytorch_fp32,1678,11579,64.15,90.17,94.58,96.48,21.65,+0.00,+0.00
+VeRi-776,Full Test,resnet50ibn_rga,pytorch_fp16,1678,11579,64.15,90.17,94.58,96.48,21.65,-0.00,+0.00
+VeRi-776,Full Test,convnext_rga,pytorch_fp32,1678,11579,80.05,95.23,97.50,98.45,43.69,+0.00,+0.00
+VeRi-776,Full Test,convnext_rga,pytorch_fp16,1678,11579,80.04,95.23,97.50,98.45,43.70,-0.00,+0.00
+VeRi-776,Full Test,convnext_bcgg,pytorch_fp32,1678,11579,77.57,94.28,97.08,98.69,40.12,+0.00,+0.00
+VeRi-776,Full Test,convnext_bcgg,pytorch_fp16,1678,11579,77.56,94.22,97.14,98.63,40.12,-0.00,-0.06
 VRAI,Val (1000 IDs),resnet50ibn_rga,pytorch_fp32,4907,1000,86.35,80.23,93.83,95.94,86.35,+0.00,+0.00
 VRAI,Val (1000 IDs),resnet50ibn_rga,pytorch_fp16,4907,1000,86.35,80.23,93.83,95.94,86.35,+0.00,+0.00
 VRAI,Val (1000 IDs),convnext_rga,pytorch_fp32,4907,1000,92.34,88.81,96.64,97.39,92.34,+0.00,+0.00
 VRAI,Val (1000 IDs),convnext_rga,pytorch_fp16,4907,1000,92.34,88.81,96.64,97.39,92.34,+0.00,+0.00
 VRAI,Val (1000 IDs),convnext_bcgg,pytorch_fp32,4907,1000,91.52,87.71,96.35,97.49,91.52,+0.00,+0.00
 VRAI,Val (1000 IDs),convnext_bcgg,pytorch_fp16,4907,1000,91.51,87.71,96.35,97.49,91.51,-0.00,+0.00
+VeRi-776,Full Test,resnet50ibn_rga,tensorrt_fp16,1678,11579,64.15,90.17,94.64,96.48,21.65,+0.00,+0.00
+VeRi-776,Full Test,convnext_rga,tensorrt_fp16,1678,11579,80.04,95.23,97.50,98.45,43.69,-0.00,+0.00
+VeRi-776,Full Test,convnext_bcgg,tensorrt_fp16,1678,11579,77.56,94.16,97.14,98.63,40.11,-0.01,-0.12
 VRAI,Val (1000 IDs),resnet50ibn_rga,tensorrt_fp16,4907,1000,86.34,80.21,93.83,95.92,86.34,-0.01,-0.02
 VRAI,Val (1000 IDs),convnext_rga,tensorrt_fp16,4907,1000,92.34,88.79,96.64,97.41,92.34,+0.00,-0.02
 VRAI,Val (1000 IDs),convnext_bcgg,tensorrt_fp16,4907,1000,91.50,87.67,96.33,97.49,91.50,-0.02,-0.04

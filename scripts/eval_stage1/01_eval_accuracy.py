@@ -45,6 +45,39 @@ from metrics import (  # noqa: E402
 )
 
 
+DOMAIN_TO_DATASET = {
+    "veri": "VeRi-776",
+    "vehicleid": "VehicleID",
+    "vru": "VRU",
+    "vrai": "VRAI",
+}
+
+_DATASET_SPLIT_ORDER = {
+    ("VeRi-776", "Full Test"): 0,
+    ("VehicleID", "Test-800"): 1,
+    ("VehicleID", "Test-1600"): 2,
+    ("VehicleID", "Test-2400"): 3,
+    ("VRU", "Small (1200)"): 4,
+    ("VRU", "Medium (2400)"): 5,
+    ("VRU", "Large (8000)"): 6,
+    ("VRAI", "Val (1000 IDs)"): 7,
+}
+
+_MODEL_ORDER = {k: i for i, k in enumerate(MODEL_KEYS)}
+
+
+def _row_sort_key(row: Dict[str, Any]) -> Tuple[int, str, str, int]:
+    ds = str(row.get("dataset", ""))
+    sp = str(row.get("split", ""))
+    mk = str(row.get("model", ""))
+    return (
+        _DATASET_SPLIT_ORDER.get((ds, sp), 99),
+        ds,
+        sp,
+        _MODEL_ORDER.get(mk, 99),
+    )
+
+
 def _round2(val: float) -> str:
     return f"{val:.2f}"
 
@@ -230,6 +263,11 @@ def main() -> None:
         "--trt-only",
         action="store_true",
         help="Only run TensorRT FP16 on precision_consistency_domains and merge into existing precision_comparison",
+    )
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="Merge newly evaluated domains into existing output files instead of overwriting other domains",
     )
     parser.add_argument("--strict", action="store_true", help="Fail if any dataset or checkpoint is missing")
     args = parser.parse_args()
@@ -441,6 +479,7 @@ def main() -> None:
         for split_sz in veh_splits:
             try:
                 pool_ds, idx_by_id, split_meta = load_vehicleid_split_pool(veh_cfg["dir"], split_sz, tfm)
+                dataset_protocols["vehicleid"].setdefault("split_details", {})[str(split_sz)] = split_meta
             except FileNotFoundError as exc:
                 if args.strict:
                     raise
@@ -697,8 +736,29 @@ def main() -> None:
         "R10_std",
         "mINP_std",
     ]
-    write_csv(summary_csv_rows, out_dir / "accuracy_summary.csv", fieldnames=summary_fields)
-    write_json(summary_json_rows, out_dir / "accuracy_summary.json")
+    selected_datasets = {DOMAIN_TO_DATASET[d] for d in selected_domains if d in DOMAIN_TO_DATASET}
+    acc_csv_path = out_dir / "accuracy_summary.csv"
+    if args.merge and acc_csv_path.is_file():
+        with acc_csv_path.open("r", encoding="utf-8") as f:
+            existing_csv_rows = list(csv.DictReader(f))
+        merged_csv_rows = [
+            r for r in existing_csv_rows if r.get("dataset") not in selected_datasets
+        ] + summary_csv_rows
+    else:
+        merged_csv_rows = list(summary_csv_rows)
+    merged_csv_rows.sort(key=_row_sort_key)
+    write_csv(merged_csv_rows, acc_csv_path, fieldnames=summary_fields)
+
+    acc_json_path = out_dir / "accuracy_summary.json"
+    if args.merge and acc_json_path.is_file():
+        existing_json_rows = json.loads(acc_json_path.read_text(encoding="utf-8"))
+        merged_json_rows = [
+            r for r in existing_json_rows if r.get("dataset") not in selected_datasets
+        ] + summary_json_rows
+    else:
+        merged_json_rows = list(summary_json_rows)
+    merged_json_rows.sort(key=_row_sort_key)
+    write_json(merged_json_rows, acc_json_path)
 
     raw_fields = [
         "dataset",
@@ -715,17 +775,60 @@ def main() -> None:
         "R10",
         "mINP",
     ]
-    write_csv(vehicleid_raw_rows, out_dir / "vehicleid_10runs_raw.csv", fieldnames=raw_fields)
-    _update_precision_comparison(precision_records, out_dir)
-    write_json(
-        {
+    if (not args.merge) or ("vehicleid" in selected_domains):
+        write_csv(vehicleid_raw_rows, out_dir / "vehicleid_10runs_raw.csv", fieldnames=raw_fields)
+
+    if args.merge:
+        if precision_records:
+            prec_json_path = out_dir / "precision_comparison_fp32_fp16_trt.json"
+            new_keys = {
+                (r["dataset"], r["split"], r["model"], r["runtime_precision"]) for r in precision_records
+            }
+            if prec_json_path.is_file():
+                existing_prec = json.loads(prec_json_path.read_text(encoding="utf-8"))
+                merged_prec = [
+                    r
+                    for r in existing_prec
+                    if (
+                        r.get("dataset"),
+                        r.get("split"),
+                        r.get("model"),
+                        r.get("runtime_precision"),
+                    )
+                    not in new_keys
+                ] + precision_records
+            else:
+                merged_prec = list(precision_records)
+            _update_precision_comparison(merged_prec, out_dir)
+    else:
+        _update_precision_comparison(precision_records, out_dir)
+
+    proto_path = out_dir / "protocol_metadata.json"
+    if args.merge and proto_path.is_file():
+        prev_meta = json.loads(proto_path.read_text(encoding="utf-8"))
+        merged_datasets = dict(prev_meta.get("datasets", {}))
+        merged_datasets.update(dataset_protocols)
+        prev_skipped = prev_meta.get("skipped", [])
+        merged_skipped = [
+            s
+            for s in prev_skipped
+            if s.get("domain") not in selected_domains
+            and not any(str(s.get("domain", "")).startswith(f"{d}_") for d in selected_domains)
+        ] + skipped_items
+        proto_payload = {
+            "preprocess": tfm_meta,
+            "primary_precision": primary_prec,
+            "datasets": merged_datasets,
+            "skipped": merged_skipped,
+        }
+    else:
+        proto_payload = {
             "preprocess": tfm_meta,
             "primary_precision": primary_prec,
             "datasets": dataset_protocols,
             "skipped": skipped_items,
-        },
-        out_dir / "protocol_metadata.json",
-    )
+        }
+    write_json(proto_payload, proto_path)
 
 
 if __name__ == "__main__":

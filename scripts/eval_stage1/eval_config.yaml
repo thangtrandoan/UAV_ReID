@@ -6,7 +6,7 @@ datasets:
   veri:
     dir: data/VeRi
   vehicleid:
-    dir: data/VehicleID_V1.0
+    dir: data/VehicleID
     splits: [800, 1600, 2400]
     seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
   vru:
@@ -39,7 +39,7 @@ checkpoints:
     convnext_bcgg: weights/vrai/gasnet_convnext_bcgg.best.pth
   vehicleid:
     resnet50ibn_rga: weights/vehicleid/gasnet_resnet_rga.best.pth
-    convnext_rga: weights/vehicleid/gasnet_convnext_rga.last.pth
+    convnext_rga: weights/vehicleid/gasnet_convnext_rga.best.pth
     convnext_bcgg: weights/vehicleid/gasnet_convnext_bcgg.best.pth
 
 eval:
